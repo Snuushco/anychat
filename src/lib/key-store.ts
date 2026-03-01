@@ -117,6 +117,42 @@ export async function validateApiKey(provider: Provider, key: string): Promise<b
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
       return res.ok;
     }
+    if (provider === 'xai') {
+      const res = await fetch('https://api.x.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${key}` },
+      });
+      return res.ok;
+    }
+    if (provider === 'mistral') {
+      const res = await fetch('https://api.mistral.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${key}` },
+      });
+      return res.ok;
+    }
+    if (provider === 'deepseek') {
+      const res = await fetch('https://api.deepseek.com/models', {
+        headers: { 'Authorization': `Bearer ${key}` },
+      });
+      return res.ok;
+    }
+    if (provider === 'cohere') {
+      const res = await fetch('https://api.cohere.com/v1/models', {
+        headers: { 'Authorization': `bearer ${key}` },
+      });
+      return res.ok;
+    }
+    if (provider === 'groq') {
+      const res = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { 'Authorization': `Bearer ${key}` },
+      });
+      return res.ok;
+    }
+    if (provider === 'openrouter') {
+      const res = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: { 'Authorization': `Bearer ${key}` },
+      });
+      return res.ok;
+    }
     return false;
   } catch {
     return false;

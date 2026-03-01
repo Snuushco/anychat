@@ -13,6 +13,15 @@ export interface StreamCallbacks {
   onError: (error: string) => void;
 }
 
+const OPENAI_COMPATIBLE_ENDPOINTS: Partial<Record<Provider, string>> = {
+  openai: 'https://api.openai.com/v1/chat/completions',
+  xai: 'https://api.x.ai/v1/chat/completions',
+  mistral: 'https://api.mistral.ai/v1/chat/completions',
+  deepseek: 'https://api.deepseek.com/chat/completions',
+  groq: 'https://api.groq.com/openai/v1/chat/completions',
+  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+};
+
 export async function streamChat(
   modelId: string,
   provider: Provider,
@@ -27,12 +36,20 @@ export async function streamChat(
   }
 
   try {
-    if (provider === 'openai') {
-      await streamOpenAI(apiKey, modelId, messages, callbacks, signal);
+    const endpoint = OPENAI_COMPATIBLE_ENDPOINTS[provider];
+    if (endpoint) {
+      const extraHeaders: Record<string, string> = {};
+      if (provider === 'openrouter') {
+        extraHeaders['HTTP-Referer'] = 'https://anychat-alpha.vercel.app';
+        extraHeaders['X-Title'] = 'AnyChat';
+      }
+      await streamOpenAICompatible(endpoint, apiKey, modelId, messages, callbacks, signal, extraHeaders);
     } else if (provider === 'anthropic') {
       await streamAnthropic(apiKey, modelId, messages, callbacks, signal);
     } else if (provider === 'google') {
       await streamGoogle(apiKey, modelId, messages, callbacks, signal);
+    } else if (provider === 'cohere') {
+      await streamCohere(apiKey, modelId, messages, callbacks, signal);
     }
   } catch (err) {
     if (signal?.aborted) return;
@@ -40,15 +57,16 @@ export async function streamChat(
   }
 }
 
-async function streamOpenAI(
-  apiKey: string, model: string, messages: ChatMessage[],
-  cb: StreamCallbacks, signal?: AbortSignal
+async function streamOpenAICompatible(
+  endpoint: string, apiKey: string, model: string, messages: ChatMessage[],
+  cb: StreamCallbacks, signal?: AbortSignal, extraHeaders?: Record<string, string>
 ) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      ...extraHeaders,
     },
     body: JSON.stringify({
       model,
@@ -61,7 +79,7 @@ async function streamOpenAI(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `OpenAI fout: ${res.status}`);
+    throw new Error(err.error?.message || `API fout: ${res.status}`);
   }
 
   const reader = res.body!.getReader();
@@ -100,7 +118,6 @@ async function streamAnthropic(
   apiKey: string, model: string, messages: ChatMessage[],
   cb: StreamCallbacks, signal?: AbortSignal
 ) {
-  // Filter out system messages for Anthropic's format
   const systemMsg = messages.find(m => m.role === 'system');
   const chatMsgs = messages.filter(m => m.role !== 'system');
 
@@ -217,6 +234,61 @@ async function streamGoogle(
           usage = {
             inputTokens: data.usageMetadata.promptTokenCount || 0,
             outputTokens: data.usageMetadata.candidatesTokenCount || 0,
+          };
+        }
+      } catch { /* skip */ }
+    }
+  }
+  cb.onDone(usage);
+}
+
+async function streamCohere(
+  apiKey: string, model: string, messages: ChatMessage[],
+  cb: StreamCallbacks, signal?: AbortSignal
+) {
+  const res = await fetch('https://api.cohere.com/v2/chat', {
+    method: 'POST',
+    headers: {
+      'Authorization': `bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
+      stream: true,
+    }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Cohere fout: ${res.status}`);
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let usage = { inputTokens: 0, outputTokens: 0 };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.type === 'content-delta' && data.delta?.message?.content?.text) {
+          cb.onToken(data.delta.message.content.text);
+        }
+        if (data.type === 'message-end' && data.delta?.usage?.billed_units) {
+          usage = {
+            inputTokens: data.delta.usage.billed_units.input_tokens || 0,
+            outputTokens: data.delta.usage.billed_units.output_tokens || 0,
           };
         }
       } catch { /* skip */ }
