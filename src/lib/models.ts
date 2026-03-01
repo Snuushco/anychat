@@ -97,7 +97,7 @@ export const MODELS: AIModel[] = [
   },
   // Google
   {
-    id: 'gemini-2.5-pro-preview-06-05',
+    id: 'gemini-2.5-pro',
     name: 'Gemini 2.5 Pro',
     provider: 'google',
     inputCostPer1k: 0.00125,
@@ -107,7 +107,7 @@ export const MODELS: AIModel[] = [
     speed: 'medium',
   },
   {
-    id: 'gemini-2.5-flash-preview-05-20',
+    id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
     provider: 'google',
     inputCostPer1k: 0.00015,

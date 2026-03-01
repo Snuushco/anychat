@@ -10,7 +10,7 @@ interface ChatMessage {
 }
 
 const FREE_DAILY_LIMIT = 20;
-const FREE_MODEL = 'gemini-2.5-flash-preview-05-20';
+const FREE_MODEL = 'gemini-2.5-flash';
 
 const ipUsage = new Map<string, { count: number; resetAt: number }>();
 
