@@ -4,15 +4,18 @@ import { useState, useEffect } from "react"
 import { KeyManager } from "@/components/key-manager"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { User, Key, Palette, Info } from "lucide-react"
+import { User, Key, Palette, Info, Wrench } from "lucide-react"
+import { ALL_TOOLS, getEnabledTools, setEnabledTools } from "@/lib/tools"
 
 export default function SettingsPage() {
   const [userName, setUserName] = useState("")
   const [defaultModel, setDefaultModel] = useState("gpt-4.1")
+  const [enabledToolIds, setEnabledToolIds] = useState<string[]>([])
 
   useEffect(() => {
     setUserName(localStorage.getItem("anychat_user_name") || "")
     setDefaultModel(localStorage.getItem("anychat_default_model") || "gpt-4.1")
+    setEnabledToolIds(getEnabledTools().map(t => t.id))
   }, [])
 
   function saveName(name: string) {
@@ -78,6 +81,40 @@ export default function SettingsPage() {
               <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
               <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash</option>
             </select>
+          </div>
+        </section>
+
+        {/* Agent Tools */}
+        <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Wrench className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-semibold text-sm">Agent Tools</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Kies welke tools beschikbaar zijn in Agent modus
+          </p>
+          <div className="space-y-2">
+            {ALL_TOOLS.map(tool => (
+              <label key={tool.id} className="flex items-center gap-3 py-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enabledToolIds.includes(tool.id)}
+                  onChange={(e) => {
+                    const newIds = e.target.checked
+                      ? [...enabledToolIds, tool.id]
+                      : enabledToolIds.filter(id => id !== tool.id)
+                    setEnabledToolIds(newIds)
+                    setEnabledTools(newIds)
+                  }}
+                  className="rounded border-border"
+                />
+                <span className="text-base">{tool.icon}</span>
+                <div>
+                  <p className="text-sm font-medium">{tool.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{tool.description.slice(0, 60)}...</p>
+                </div>
+              </label>
+            ))}
           </div>
         </section>
 

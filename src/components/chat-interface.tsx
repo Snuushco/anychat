@@ -8,8 +8,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, Square, Copy, Check, DollarSign, Paperclip, Mic, Zap, MessageSquare, ChevronDown } from "lucide-react"
 import { ModelSelector } from "./model-selector"
-import { streamChat, type ChatMessage as AIChatMessage } from "@/lib/ai-client"
+import { streamChat, streamChatWithTools, type ChatMessage as AIChatMessage } from "@/lib/ai-client"
 import { MODELS, calculateCost, getModelById, PROVIDER_INFO } from "@/lib/models"
+import { getEnabledTools, ALL_TOOLS, getToolById } from "@/lib/tools"
+import { ToolCallDisplay, type ToolCallInfo } from "./tool-call-display"
 import {
   createConversation, updateConversation, addMessage as storeMessage,
   getMessages, type Message, type Conversation
@@ -36,6 +38,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [agentMode, setAgentMode] = useState(false)
   const [toolsExpanded, setToolsExpanded] = useState(false)
+  const [activeToolCalls, setActiveToolCalls] = useState<ToolCallInfo[]>([])
   const [showKeyGate, setShowKeyGate] = useState<{ provider: import("@/lib/models").Provider; modelName: string; pendingMessage: string } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -121,60 +124,92 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
     setIsStreaming(true)
     setStreamingContent("")
+    setActiveToolCalls([])
     const controller = new AbortController()
     abortRef.current = controller
 
     let fullContent = ""
 
-    await streamChat(model.id, model.provider, aiMessages, {
-      onToken: (token) => {
-        fullContent += token
-        setStreamingContent(fullContent)
-      },
-      onDone: async (usage) => {
-        const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
-        const assistantMsg: Message = {
-          id: crypto.randomUUID(),
-          conversationId: conv!.id,
-          role: 'assistant',
-          content: fullContent,
-          model: model.id,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          cost,
-          createdAt: new Date().toISOString(),
-        }
-        await storeMessage(assistantMsg)
-        setMessages(prev => [...prev, assistantMsg])
-        setStreamingContent("")
-        setIsStreaming(false)
-        setSessionCost(prev => prev + cost)
+    const onDone = async (usage: { inputTokens: number; outputTokens: number }) => {
+      const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
+      const assistantMsg: Message = {
+        id: crypto.randomUUID(),
+        conversationId: conv!.id,
+        role: 'assistant',
+        content: fullContent,
+        model: model.id,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cost,
+        createdAt: new Date().toISOString(),
+      }
+      await storeMessage(assistantMsg)
+      setMessages(prev => [...prev, assistantMsg])
+      setStreamingContent("")
+      setIsStreaming(false)
+      setSessionCost(prev => prev + cost)
 
-        const updatedConv: Conversation = {
-          ...conv!,
-          title: allMsgs.length <= 1 ? text.trim().slice(0, 50) : conv!.title,
-          model: model.id,
-          messageCount: allMsgs.length + 1,
-          totalCost: (conv!.totalCost || 0) + cost,
-          updatedAt: new Date().toISOString(),
-        }
-        await updateConversation(updatedConv)
-        onConversationUpdated(updatedConv)
-      },
-      onError: (error) => {
-        setStreamingContent("")
-        setIsStreaming(false)
-        const errMsg: Message = {
-          id: crypto.randomUUID(),
-          conversationId: conv!.id,
-          role: 'assistant',
-          content: `⚠️ Fout: ${error}`,
-          model: model.id,
-          createdAt: new Date().toISOString(),
-        }
-        setMessages(prev => [...prev, errMsg])
-      },
-    }, controller.signal)
+      const updatedConv: Conversation = {
+        ...conv!,
+        title: allMsgs.length <= 1 ? text.trim().slice(0, 50) : conv!.title,
+        model: model.id,
+        messageCount: allMsgs.length + 1,
+        totalCost: (conv!.totalCost || 0) + cost,
+        updatedAt: new Date().toISOString(),
+      }
+      await updateConversation(updatedConv)
+      onConversationUpdated(updatedConv)
+    }
+
+    const onError = (error: string) => {
+      setStreamingContent("")
+      setIsStreaming(false)
+      const errMsg: Message = {
+        id: crypto.randomUUID(),
+        conversationId: conv!.id,
+        role: 'assistant',
+        content: `⚠️ Fout: ${error}`,
+        model: model.id,
+        createdAt: new Date().toISOString(),
+      }
+      setMessages(prev => [...prev, errMsg])
+    }
+
+    const onToken = (token: string) => {
+      fullContent += token
+      setStreamingContent(fullContent)
+    }
+
+    const enabledTools = getEnabledTools()
+
+    if (agentMode && enabledTools.length > 0) {
+      await streamChatWithTools(model.id, model.provider, aiMessages, enabledTools, {
+        onToken,
+        onDone,
+        onError,
+        onToolCall: (toolName, params) => {
+          const tool = getToolById(toolName)
+          const callInfo: ToolCallInfo = {
+            id: crypto.randomUUID(),
+            toolName: tool?.name || toolName,
+            toolIcon: tool?.icon || '🔧',
+            params,
+            status: 'running',
+          }
+          setActiveToolCalls(prev => [...prev, callInfo])
+        },
+        onToolResult: (toolName, result) => {
+          setActiveToolCalls(prev =>
+            prev.map(tc => tc.toolName === (getToolById(toolName)?.name || toolName) && tc.status === 'running'
+              ? { ...tc, status: result.success ? 'success' : 'error', result }
+              : tc
+            )
+          )
+        },
+      }, controller.signal)
+    } else {
+      await streamChat(model.id, model.provider, aiMessages, { onToken, onDone, onError }, controller.signal)
+    }
   }
 
   function handleStop() {
@@ -341,22 +376,23 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             </div>
           )}
 
-          {/* Tool use visualization (when agent mode) */}
-          {agentMode && isStreaming && (
-            <div className="ml-2">
-              <button
-                onClick={() => setToolsExpanded(!toolsExpanded)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span>🔧</span>
-                <span>Tools</span>
-                <ChevronDown className={`h-3 w-3 transition-transform ${toolsExpanded ? "rotate-180" : ""}`} />
-              </button>
-              {toolsExpanded && (
-                <div className="mt-1 ml-5 text-xs text-muted-foreground/70 bg-muted/30 rounded-lg px-3 py-2 border border-border/20">
-                  <p>Agent modus actief — tools worden automatisch geselecteerd</p>
-                </div>
-              )}
+          {/* Tool call visualization */}
+          {activeToolCalls.length > 0 && (
+            <div className="max-w-[85%]">
+              {activeToolCalls.map(tc => (
+                <ToolCallDisplay key={tc.id} call={tc} />
+              ))}
+            </div>
+          )}
+
+          {/* Agent mode tool bar */}
+          {agentMode && !isStreaming && messages.length === 0 && (
+            <div className="flex items-center gap-1.5 justify-center mt-2">
+              {getEnabledTools().map(t => (
+                <span key={t.id} className="text-xs px-2 py-1 rounded-full bg-muted/40 border border-border/30" title={t.name}>
+                  {t.icon}
+                </span>
+              ))}
             </div>
           )}
         </div>

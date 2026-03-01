@@ -1,10 +1,14 @@
 // Direct client-side AI API calls (keys never touch our server)
 import { getApiKey } from './key-store';
 import type { Provider } from './models';
+import type { Tool, ToolResult } from './tools';
+import { toolsToOpenAI, toolsToAnthropic, toolsToGemini, getToolById } from './tools';
 
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
+  tool_calls?: any[];
+  tool_call_id?: string;
 }
 
 export interface StreamCallbacks {
@@ -295,4 +299,210 @@ async function streamCohere(
     }
   }
   cb.onDone(usage);
+}
+
+// ── Tool-calling wrapper ──
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+export interface ToolCallbacks extends StreamCallbacks {
+  onToolCall: (toolName: string, params: any) => void
+  onToolResult: (toolName: string, result: ToolResult) => void
+}
+
+export async function streamChatWithTools(
+  modelId: string,
+  provider: Provider,
+  messages: ChatMessage[],
+  tools: Tool[],
+  callbacks: ToolCallbacks,
+  signal?: AbortSignal
+): Promise<void> {
+  const apiKey = await getApiKey(provider);
+  if (!apiKey) {
+    callbacks.onError(`Geen API key gevonden voor ${provider}. Voeg er een toe in Instellingen.`);
+    return;
+  }
+
+  const endpoint = OPENAI_COMPATIBLE_ENDPOINTS[provider];
+
+  if (endpoint) {
+    await openaiToolLoop(endpoint, apiKey, modelId, provider, messages, tools, callbacks, signal);
+  } else if (provider === 'anthropic') {
+    await anthropicToolLoop(apiKey, modelId, messages, tools, callbacks, signal);
+  } else if (provider === 'google') {
+    await googleToolLoop(apiKey, modelId, messages, tools, callbacks, signal);
+  } else {
+    await streamChat(modelId, provider, messages, callbacks, signal);
+  }
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+async function openaiToolLoop(
+  endpoint: string, apiKey: string, model: string, provider: Provider,
+  messages: ChatMessage[], tools: Tool[], cb: ToolCallbacks, signal?: AbortSignal
+) {
+  const extraHeaders: Record<string, string> = {};
+  if (provider === 'openrouter') {
+    extraHeaders['HTTP-Referer'] = 'https://anychat-alpha.vercel.app';
+    extraHeaders['X-Title'] = 'AnyChat';
+  }
+
+  const currentMessages = [...messages];
+
+  for (let round = 0; round < 5; round++) {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', ...extraHeaders },
+      body: JSON.stringify({
+        model,
+        messages: currentMessages.map(m => {
+          const out: any = { role: m.role, content: m.content };
+          if (m.tool_calls) out.tool_calls = m.tool_calls;
+          if (m.tool_call_id) out.tool_call_id = m.tool_call_id;
+          return out;
+        }),
+        tools: toolsToOpenAI(tools),
+        tool_choice: 'auto',
+      }),
+      signal,
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || `API fout: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const msg = data.choices?.[0]?.message;
+    if (!msg) throw new Error('No response from API');
+
+    if (msg.tool_calls && msg.tool_calls.length > 0) {
+      currentMessages.push({ role: 'assistant', content: msg.content || '', tool_calls: msg.tool_calls });
+      for (const tc of msg.tool_calls) {
+        const toolId = tc.function.name;
+        let params: any;
+        try { params = JSON.parse(tc.function.arguments); } catch { params = {}; }
+        cb.onToolCall(toolId, params);
+        const tool = getToolById(toolId);
+        const result: ToolResult = tool
+          ? await tool.execute(params)
+          : { success: false, data: null, display: 'text', content: `Unknown tool: ${toolId}` };
+        cb.onToolResult(toolId, result);
+        currentMessages.push({ role: 'tool', content: result.content, tool_call_id: tc.id });
+      }
+    } else {
+      if (msg.content) cb.onToken(msg.content);
+      cb.onDone({ inputTokens: data.usage?.prompt_tokens || 0, outputTokens: data.usage?.completion_tokens || 0 });
+      return;
+    }
+  }
+  cb.onError('Max tool call rounds reached');
+}
+
+async function anthropicToolLoop(
+  apiKey: string, model: string, messages: ChatMessage[], tools: Tool[],
+  cb: ToolCallbacks, signal?: AbortSignal
+) {
+  const systemMsg = messages.find(m => m.role === 'system');
+  const chatMsgs = messages.filter(m => m.role !== 'system');
+  const anthropicMsgs: any[] = chatMsgs.map(m => ({
+    role: m.role === 'tool' ? 'user' : m.role, content: m.content,
+  }));
+
+  for (let round = 0; round < 5; round++) {
+    const body: any = {
+      model, max_tokens: 4096, messages: anthropicMsgs, tools: toolsToAnthropic(tools),
+    };
+    if (systemMsg) body.system = systemMsg.content;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey, 'anthropic-version': '2023-06-01',
+        'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(body), signal,
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || `Anthropic fout: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const toolUseBlocks = (data.content || []).filter((b: any) => b.type === 'tool_use');
+    const textBlocks = (data.content || []).filter((b: any) => b.type === 'text');
+
+    if (toolUseBlocks.length > 0) {
+      anthropicMsgs.push({ role: 'assistant', content: data.content });
+      const toolResults: any[] = [];
+      for (const block of toolUseBlocks) {
+        cb.onToolCall(block.name, block.input);
+        const tool = getToolById(block.name);
+        const result: ToolResult = tool
+          ? await tool.execute(block.input)
+          : { success: false, data: null, display: 'text', content: `Unknown tool: ${block.name}` };
+        cb.onToolResult(block.name, result);
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result.content });
+      }
+      anthropicMsgs.push({ role: 'user', content: toolResults });
+    } else {
+      const text = textBlocks.map((b: any) => b.text).join('');
+      if (text) cb.onToken(text);
+      cb.onDone({ inputTokens: data.usage?.input_tokens || 0, outputTokens: data.usage?.output_tokens || 0 });
+      return;
+    }
+  }
+  cb.onError('Max tool call rounds reached');
+}
+
+async function googleToolLoop(
+  apiKey: string, model: string, messages: ChatMessage[], tools: Tool[],
+  cb: ToolCallbacks, signal?: AbortSignal
+) {
+  const systemInstruction = messages.find(m => m.role === 'system');
+  const contents: any[] = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+
+  for (let round = 0; round < 5; round++) {
+    const body: any = { contents, tools: toolsToGemini(tools) };
+    if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal }
+    );
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || `Google fout: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const functionCalls = parts.filter((p: any) => p.functionCall);
+    const textParts = parts.filter((p: any) => p.text);
+
+    if (functionCalls.length > 0) {
+      contents.push({ role: 'model', parts });
+      const functionResponses: any[] = [];
+      for (const fc of functionCalls) {
+        const { name, args } = fc.functionCall;
+        cb.onToolCall(name, args);
+        const tool = getToolById(name);
+        const result: ToolResult = tool
+          ? await tool.execute(args)
+          : { success: false, data: null, display: 'text', content: `Unknown tool: ${name}` };
+        cb.onToolResult(name, result);
+        functionResponses.push({ functionResponse: { name, response: { content: result.content } } });
+      }
+      contents.push({ role: 'user', parts: functionResponses });
+    } else {
+      const text = textParts.map((p: any) => p.text).join('');
+      if (text) cb.onToken(text);
+      cb.onDone({ inputTokens: data.usageMetadata?.promptTokenCount || 0, outputTokens: data.usageMetadata?.candidatesTokenCount || 0 });
+      return;
+    }
+  }
+  cb.onError('Max tool call rounds reached');
 }
