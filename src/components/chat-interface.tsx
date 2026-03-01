@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Square, RotateCcw, Copy, Check, DollarSign } from "lucide-react"
+import { Send, Square, Copy, Check, DollarSign, Paperclip, Mic, Zap, MessageSquare, ChevronDown } from "lucide-react"
 import { ModelSelector } from "./model-selector"
 import { streamChat, type ChatMessage as AIChatMessage } from "@/lib/ai-client"
 import { MODELS, calculateCost, getModelById, PROVIDER_INFO } from "@/lib/models"
@@ -15,14 +15,16 @@ import {
   getMessages, type Message, type Conversation
 } from "@/lib/chat-store"
 import { getAllKeys } from "@/lib/key-store"
+import { SUGGESTED_PROMPTS } from "@/lib/prompts"
 
 interface ChatInterfaceProps {
   conversation: Conversation | null
   onConversationCreated: (conv: Conversation) => void
   onConversationUpdated: (conv: Conversation) => void
+  agentSystemPrompt?: string | null
 }
 
-export function ChatInterface({ conversation, onConversationCreated, onConversationUpdated }: ChatInterfaceProps) {
+export function ChatInterface({ conversation, onConversationCreated, onConversationUpdated, agentSystemPrompt }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
@@ -31,11 +33,15 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [availableProviders, setAvailableProviders] = useState<Set<string>>(new Set())
   const [sessionCost, setSessionCost] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [agentMode, setAgentMode] = useState(false)
+  const [toolsExpanded, setToolsExpanded] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    const saved = localStorage.getItem("anychat_default_model")
+    if (saved) setSelectedModel(saved)
     loadKeys()
   }, [])
 
@@ -66,8 +72,9 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     }
   }, [messages, streamingContent])
 
-  async function handleSend() {
-    if (!input.trim() || isStreaming) return
+  async function handleSend(overrideInput?: string) {
+    const text = overrideInput ?? input
+    if (!text.trim() || isStreaming) return
 
     const model = getModelById(selectedModel) || MODELS[0]
     let conv = conversation
@@ -81,7 +88,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       id: crypto.randomUUID(),
       conversationId: conv.id,
       role: 'user',
-      content: input.trim(),
+      content: text.trim(),
       model: model.id,
       createdAt: new Date().toISOString(),
     }
@@ -90,12 +97,18 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     setMessages(prev => [...prev, userMsg])
     setInput("")
 
-    // Build AI message history
     const allMsgs = [...messages, userMsg]
-    const aiMessages: AIChatMessage[] = allMsgs.map(m => ({
-      role: m.role,
-      content: m.content,
-    }))
+    const aiMessages: AIChatMessage[] = []
+
+    // Inject agent system prompt if present
+    if (agentSystemPrompt) {
+      aiMessages.push({ role: 'user' as const, content: `[System]: ${agentSystemPrompt}` })
+      aiMessages.push({ role: 'assistant' as const, content: "Begrepen, ik neem deze rol aan." })
+    }
+
+    allMsgs.forEach(m => {
+      aiMessages.push({ role: m.role, content: m.content })
+    })
 
     setIsStreaming(true)
     setStreamingContent("")
@@ -128,10 +141,9 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
         setIsStreaming(false)
         setSessionCost(prev => prev + cost)
 
-        // Update conversation title from first message
         const updatedConv: Conversation = {
           ...conv!,
-          title: allMsgs.length <= 1 ? input.trim().slice(0, 50) : conv!.title,
+          title: allMsgs.length <= 1 ? text.trim().slice(0, 50) : conv!.title,
           model: model.id,
           messageCount: allMsgs.length + 1,
           totalCost: (conv!.totalCost || 0) + cost,
@@ -175,15 +187,31 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  const modelName = getModelById(selectedModel)?.name || "AI"
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-2 shrink-0">
-        <ModelSelector
-          selectedModel={selectedModel}
-          onSelect={(m) => setSelectedModel(m.id)}
-          availableProviders={availableProviders}
-        />
+      <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5 shrink-0 bg-background/80 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onSelect={(m) => setSelectedModel(m.id)}
+            availableProviders={availableProviders}
+          />
+          {/* Agent mode toggle */}
+          <button
+            onClick={() => setAgentMode(!agentMode)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
+              agentMode
+                ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {agentMode ? <Zap className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
+            {agentMode ? "Agent" : "Chat"}
+          </button>
+        </div>
         {sessionCost > 0 && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <DollarSign className="h-3 w-3" />
@@ -196,12 +224,28 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       <ScrollArea className="flex-1 px-4" ref={scrollRef}>
         <div className="max-w-2xl mx-auto py-4 space-y-4">
           {messages.length === 0 && !streamingContent && (
-            <div className="text-center py-20 space-y-3">
-              <p className="text-4xl">💬</p>
-              <h2 className="text-xl font-semibold">Hoi! Waarmee kan ik helpen?</h2>
-              <p className="text-sm text-muted-foreground">
-                Stel een vraag aan {getModelById(selectedModel)?.name || 'AI'}
-              </p>
+            <div className="text-center py-16 space-y-6 animate-fade-in">
+              <div>
+                <p className="text-4xl mb-3">⚡</p>
+                <h2 className="text-xl font-semibold">Waarmee kan ik helpen?</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {agentSystemPrompt ? "Agent staat klaar" : `Powered by ${modelName}`}
+                </p>
+              </div>
+
+              {/* Suggested prompts */}
+              <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
+                {SUGGESTED_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt.text}
+                    onClick={() => handleSend(prompt.text)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/50 border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border transition-all duration-200 active:scale-[0.97]"
+                  >
+                    <span>{prompt.icon}</span>
+                    <span>{prompt.text}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -210,8 +254,8 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
               <div
                 className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm
                   ${msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap'
-                    : 'bg-muted rounded-bl-md prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5'
+                    ? 'bg-accent-primary text-white rounded-br-md whitespace-pre-wrap'
+                    : 'bg-muted/50 border border-border/30 rounded-bl-md prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5'
                   }`}
               >
                 {msg.role === 'user' ? msg.content : (
@@ -236,38 +280,91 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             </div>
           ))}
 
+          {/* Streaming message */}
           {streamingContent && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-2.5 text-sm prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5">
+              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted/50 border border-border/30 px-4 py-2.5 text-sm prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
-                <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
+                <span className="inline-block w-1.5 h-4 bg-accent-primary/60 animate-pulse ml-0.5 rounded-sm" />
               </div>
+            </div>
+          )}
+
+          {/* Typing indicator */}
+          {isStreaming && !streamingContent && (
+            <div className="flex justify-start">
+              <div className="flex items-center gap-2 px-4 py-3 rounded-2xl rounded-bl-md bg-muted/50 border border-border/30">
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-primary/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+                <span className="text-xs text-muted-foreground">{modelName} is aan het denken...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Tool use visualization (when agent mode) */}
+          {agentMode && isStreaming && (
+            <div className="ml-2">
+              <button
+                onClick={() => setToolsExpanded(!toolsExpanded)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>🔧</span>
+                <span>Tools</span>
+                <ChevronDown className={`h-3 w-3 transition-transform ${toolsExpanded ? "rotate-180" : ""}`} />
+              </button>
+              {toolsExpanded && (
+                <div className="mt-1 ml-5 text-xs text-muted-foreground/70 bg-muted/30 rounded-lg px-3 py-2 border border-border/20">
+                  <p>Agent modus actief — tools worden automatisch geselecteerd</p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t p-4 shrink-0">
-        <div className="max-w-2xl mx-auto flex items-end gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Typ een bericht..."
-            className="min-h-[44px] max-h-[120px] resize-none"
-            rows={1}
-          />
-          {isStreaming ? (
-            <Button size="icon" variant="destructive" onClick={handleStop} className="shrink-0">
-              <Square className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button size="icon" onClick={handleSend} disabled={!input.trim()} className="shrink-0">
-              <Send className="h-4 w-4" />
-            </Button>
-          )}
+      <div className="border-t border-border/50 p-3 shrink-0 bg-background/80 backdrop-blur-sm">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-end gap-2 bg-muted/30 border border-border/50 rounded-2xl px-3 py-2 focus-within:border-accent-primary/50 transition-colors duration-200">
+            {/* Attachment button */}
+            <button className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50 min-h-[36px] min-w-[36px] flex items-center justify-center">
+              <Paperclip className="h-4.5 w-4.5" />
+            </button>
+
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Typ een bericht..."
+              className="min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 py-1.5 text-sm"
+              rows={1}
+            />
+
+            {/* Voice button */}
+            <button className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50 min-h-[36px] min-w-[36px] flex items-center justify-center">
+              <Mic className="h-4.5 w-4.5" />
+            </button>
+
+            {/* Send / Stop */}
+            {isStreaming ? (
+              <Button size="icon" variant="destructive" onClick={handleStop} className="shrink-0 h-9 w-9 rounded-xl">
+                <Square className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                size="icon"
+                onClick={() => handleSend()}
+                disabled={!input.trim()}
+                className="shrink-0 h-9 w-9 rounded-xl bg-accent-primary hover:bg-accent-primary/90 text-white disabled:opacity-30"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
