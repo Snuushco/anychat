@@ -322,7 +322,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 min-h-0 px-4" ref={scrollRef}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-4" ref={scrollRef}>
         <div className="max-w-2xl mx-auto py-4 space-y-4">
           {messages.length === 0 && !streamingContent && (
             <div className="text-center py-16 space-y-6 animate-fade-in">
@@ -466,7 +466,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       <div className="border-t border-border/50 p-3 shrink-0 bg-background/80 backdrop-blur-sm">
