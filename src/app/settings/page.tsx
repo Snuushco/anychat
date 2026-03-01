@@ -4,7 +4,9 @@ import { useState, useEffect } from "react"
 import { KeyManager } from "@/components/key-manager"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { User, Key, Palette, Info, Wrench, Brain, Volume2, Trash2 } from "lucide-react"
+import { User, Key, Palette, Info, Wrench, Brain, Volume2, Trash2, Puzzle, Bell } from "lucide-react"
+import Link from "next/link"
+import { requestNotificationPermission } from "@/lib/notifications"
 import { ALL_TOOLS, getEnabledTools, setEnabledTools } from "@/lib/tools"
 import { getAllMemories, deleteMemory, clearAllMemories, type MemoryEntry } from "@/lib/memory"
 import { getAutoSpeak, setAutoSpeak, getSelectedVoice, setSelectedVoice, getVoices, isTTSSupported } from "@/lib/tts"
@@ -252,6 +254,39 @@ export default function SettingsPage() {
             </div>
           </section>
         )}
+
+        {/* Notifications */}
+        <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-semibold text-sm">Notificaties</h2>
+          </div>
+          <button
+            onClick={async () => {
+              const granted = await requestNotificationPermission()
+              alert(granted ? 'Notificaties ingeschakeld!' : 'Notificaties geweigerd of niet beschikbaar.')
+            }}
+            className="px-4 py-2 rounded-lg bg-accent-primary/20 text-accent-primary text-sm font-medium hover:bg-accent-primary/30 transition-colors"
+          >
+            Notificaties inschakelen
+          </button>
+          <p className="text-[11px] text-muted-foreground mt-2">Nodig voor herinneringen wanneer de app op de achtergrond draait.</p>
+        </section>
+
+        {/* Plugins */}
+        <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Puzzle className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-semibold text-sm">Plugins</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">Breid AnyChat uit met extra tools en integraties.</p>
+          <Link
+            href="/plugins"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-muted text-sm font-medium hover:bg-muted/80 transition-colors"
+          >
+            <Puzzle className="h-3.5 w-3.5" /> Plugin beheer →
+          </Link>
+        </section>
 
         {/* Appearance */}
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5">

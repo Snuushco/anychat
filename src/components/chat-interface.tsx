@@ -237,7 +237,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       setStreamingContent(fullContent)
     }
 
-    const enabledTools = getEnabledTools()
+    const enabledTools = getEnabledTools(allTools)
 
     if (agentMode && enabledTools.length > 0) {
       await streamChatWithTools(model.id, model.provider, aiMessages, enabledTools, {
@@ -458,7 +458,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
           {/* Agent mode tool bar */}
           {agentMode && !isStreaming && messages.length === 0 && (
             <div className="flex items-center gap-1.5 justify-center mt-2">
-              {getEnabledTools().map(t => (
+              {getEnabledTools(allTools).map(t => (
                 <span key={t.id} className="text-xs px-2 py-1 rounded-full bg-muted/40 border border-border/30" title={t.name}>
                   {t.icon}
                 </span>

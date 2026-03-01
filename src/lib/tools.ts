@@ -399,15 +399,17 @@ export async function getAllToolsWithPlugins(): Promise<Tool[]> {
   }
 }
 
-export function getEnabledTools(): Tool[] {
-  if (typeof window === 'undefined') return ALL_TOOLS
+export function getEnabledTools(toolList?: Tool[]): Tool[] {
+  const list = toolList || ALL_TOOLS
+  if (typeof window === 'undefined') return list
   try {
     const stored = localStorage.getItem('anychat_enabled_tools')
-    if (!stored) return ALL_TOOLS
+    if (!stored) return list
     const ids: string[] = JSON.parse(stored)
-    return ALL_TOOLS.filter(t => ids.includes(t.id))
+    // Always include plugin tools (they start with plugin_)
+    return list.filter(t => ids.includes(t.id) || t.id.startsWith('plugin_'))
   } catch {
-    return ALL_TOOLS
+    return list
   }
 }
 
