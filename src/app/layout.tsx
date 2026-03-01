@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AppShell } from "@/components/app-shell";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,12 +17,24 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AnyChat — AI Command Centre",
-  description: "Je persoonlijke AI Command Centre. Chat met alle top AI modellen vanuit één app.",
+  description: "Jouw persoonlijke AI assistant die echt dingen doet. Chat met GPT-4, Claude, Gemini en meer. Gratis, veilig, op je telefoon.",
+  keywords: "AI assistant, ChatGPT alternatief, Claude, Gemini, BYOK, gratis AI chat",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "AnyChat",
+  },
+  openGraph: {
+    title: "AnyChat — AI Command Centre",
+    description: "Jouw persoonlijke AI assistant die echt dingen doet.",
+    type: "website",
+    url: "https://anychat-alpha.vercel.app",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AnyChat — AI Command Centre",
+    description: "Jouw persoonlijke AI assistant die echt dingen doet.",
   },
 };
 
@@ -57,14 +70,28 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AppShell>{children}</AppShell>
+          <ErrorBoundary>
+            <AppShell>{children}</AppShell>
+          </ErrorBoundary>
         </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js').catch(() => {});
+                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                    reg.update();
+                    reg.addEventListener('updatefound', function() {
+                      var newWorker = reg.installing;
+                      if (newWorker) {
+                        newWorker.addEventListener('statechange', function() {
+                          if (newWorker.state === 'activated') {
+                            window.location.reload();
+                          }
+                        });
+                      }
+                    });
+                  }).catch(function() {});
                 });
               }
             `,

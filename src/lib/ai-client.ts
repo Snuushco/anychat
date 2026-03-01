@@ -51,6 +51,23 @@ function contentToGoogle(content: string | ContentPart[]): any[] {
   });
 }
 
+function friendlyError(status: number, message?: string): string {
+  if (status === 401 || status === 403) return "Je API key is ongeldig of verlopen. Ga naar Instellingen om een nieuwe in te voeren.";
+  if (status === 429) return "Rate limit bereikt. Wacht even en probeer opnieuw.";
+  if (status === 500 || status === 502 || status === 503) return "De AI service is tijdelijk niet bereikbaar. Probeer een ander model.";
+  if (status === 408) return "Het antwoord duurt te lang. Probeer een korter bericht of een sneller model.";
+  return message || `API fout: ${status}`;
+}
+
+function friendlyCatchError(err: unknown): string {
+  if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed'))) {
+    return "Geen internetverbinding. Check je verbinding en probeer opnieuw.";
+  }
+  if (err instanceof DOMException && err.name === 'AbortError') return '';
+  if (err instanceof Error) return err.message;
+  return 'Onbekende fout';
+}
+
 export interface StreamCallbacks {
   onToken: (token: string) => void;
   onDone: (usage: { inputTokens: number; outputTokens: number }) => void;
@@ -97,7 +114,8 @@ export async function streamChat(
     }
   } catch (err) {
     if (signal?.aborted) return;
-    callbacks.onError(err instanceof Error ? err.message : 'Onbekende fout');
+    const msg = friendlyCatchError(err);
+    if (msg) callbacks.onError(msg);
   }
 }
 
@@ -123,7 +141,7 @@ async function streamOpenAICompatible(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API fout: ${res.status}`);
+    throw new Error(friendlyError(res.status, err.error?.message));
   }
 
   const reader = res.body!.getReader();
@@ -187,7 +205,7 @@ async function streamAnthropic(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Anthropic fout: ${res.status}`);
+    throw new Error(friendlyError(res.status, err.error?.message));
   }
 
   const reader = res.body!.getReader();
@@ -251,7 +269,7 @@ async function streamGoogle(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Google fout: ${res.status}`);
+    throw new Error(friendlyError(res.status, err.error?.message));
   }
 
   const reader = res.body!.getReader();
@@ -306,7 +324,7 @@ async function streamCohere(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Cohere fout: ${res.status}`);
+    throw new Error(friendlyError(res.status, err.message));
   }
 
   const reader = res.body!.getReader();
@@ -410,7 +428,7 @@ async function openaiToolLoop(
 
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error?.message || `API fout: ${res.status}`);
+      throw new Error(friendlyError(res.status, errBody.error?.message));
     }
 
     const data = await res.json();
@@ -466,7 +484,7 @@ async function anthropicToolLoop(
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error?.message || `Anthropic fout: ${res.status}`);
+      throw new Error(friendlyError(res.status, errBody.error?.message));
     }
 
     const data = await res.json();
@@ -515,7 +533,7 @@ async function googleToolLoop(
     );
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error?.message || `Google fout: ${res.status}`);
+      throw new Error(friendlyError(res.status, errBody.error?.message));
     }
 
     const data = await res.json();

@@ -221,11 +221,12 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     const onError = (error: string) => {
       setStreamingContent("")
       setIsStreaming(false)
+      if (!error) return // aborted
       const errMsg: Message = {
         id: crypto.randomUUID(),
         conversationId: conv!.id,
         role: 'assistant',
-        content: `⚠️ Fout: ${error}`,
+        content: `⚠️ ${error}`,
         model: model.id,
         createdAt: new Date().toISOString(),
       }

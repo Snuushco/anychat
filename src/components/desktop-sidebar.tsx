@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { Home, MessageSquare, CheckSquare, Bot, Settings, Puzzle } from "lucide-react"
 
 const NAV_ITEMS = [
-  { href: "/", icon: Home, label: "Home" },
+  { href: "/dashboard", icon: Home, label: "Home" },
   { href: "/chat", icon: MessageSquare, label: "Chat" },
   { href: "/tasks", icon: CheckSquare, label: "Taken" },
   { href: "/agents", icon: Bot, label: "Agents" },
@@ -30,7 +30,7 @@ export function DesktopSidebar() {
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-1">
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-          const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href)
+          const isActive = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
           return (
             <Link
               key={href}
