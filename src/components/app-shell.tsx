@@ -5,19 +5,14 @@ import { DesktopSidebar } from "./desktop-sidebar"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-dvh flex overflow-hidden">
+    <div className="h-dvh flex">
       {/* Desktop sidebar */}
       <DesktopSidebar />
 
-      {/* Main content area */}
-      <div className="flex-1 min-w-0 h-dvh flex flex-col">
-        {/* Content fills available space minus nav */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {children}
-        </div>
-        {/* Invisible spacer that pushes content up, matching bottom nav */}
-        <div className="h-16 shrink-0 md:hidden" />
-      </div>
+      {/* Main content — padding-bottom for mobile nav */}
+      <main className="flex-1 min-w-0 h-dvh overflow-y-auto pb-20 md:pb-0">
+        {children}
+      </main>
 
       <BottomNav />
     </div>

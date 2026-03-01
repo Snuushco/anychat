@@ -44,7 +44,7 @@ function ChatPageInner() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-[calc(100dvh-5rem)] md:h-dvh flex flex-col">
       <div className="flex-1 min-h-0">
         <ChatInterface
           conversation={activeConversation}
