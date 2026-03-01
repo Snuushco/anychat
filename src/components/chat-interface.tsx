@@ -10,7 +10,7 @@ import { Send, Square, Copy, Check, DollarSign, Zap, MessageSquare, ChevronDown,
 import { ModelSelector } from "./model-selector"
 import { streamChat, streamChatWithTools, type ChatMessage as AIChatMessage, type ContentPart } from "@/lib/ai-client"
 import { MODELS, calculateCost, getModelById, PROVIDER_INFO } from "@/lib/models"
-import { getEnabledTools, ALL_TOOLS, getToolById } from "@/lib/tools"
+import { getEnabledTools, ALL_TOOLS, getToolById, getAllToolsWithPlugins, type Tool } from "@/lib/tools"
 import { ToolCallDisplay, type ToolCallInfo } from "./tool-call-display"
 import {
   createConversation, updateConversation, addMessage as storeMessage,
@@ -48,6 +48,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [showKeyGate, setShowKeyGate] = useState<{ provider: import("@/lib/models").Provider; modelName: string; pendingMessage: string } | null>(null)
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
   const [memoryContext, setMemoryContext] = useState<string>("")
+  const [allTools, setAllTools] = useState<Tool[]>(ALL_TOOLS)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -60,6 +61,8 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     getRecentMemories(20).then(memories => {
       setMemoryContext(buildMemoryContext(memories))
     }).catch(() => {})
+    // Load plugin tools
+    getAllToolsWithPlugins().then(setAllTools).catch(() => {})
   }, [])
 
   const loadMessages = useCallback(async () => {

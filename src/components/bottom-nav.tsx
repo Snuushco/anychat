@@ -2,11 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, MessageSquare, Bot, Settings } from "lucide-react"
+import { Home, MessageSquare, CheckSquare, Bot, Settings } from "lucide-react"
 
 const NAV_ITEMS = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/chat", icon: MessageSquare, label: "Chat" },
+  { href: "/tasks", icon: CheckSquare, label: "Tasks" },
   { href: "/agents", icon: Bot, label: "Agents" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ]
@@ -23,14 +24,13 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[44px] rounded-xl transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center gap-0.5 min-w-[48px] min-h-[44px] rounded-xl transition-all duration-200 ${
                 isActive
                   ? "text-accent-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Icon className={`h-5 w-5 transition-transform duration-200 ${isActive ? "scale-110" : ""}`} />
-              <span className="text-[10px] font-medium">{label}</span>
             </Link>
           )
         })}

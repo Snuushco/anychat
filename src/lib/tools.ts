@@ -1,6 +1,8 @@
 // Tool system for AnyChat agent mode
 
 import { addMemory, searchMemories } from './memory'
+import { addTask, getTasks, updateTask, parseNaturalTime, addReminder, type Task } from './tasks'
+import { getPluginTools } from './plugins'
 
 export interface ToolResult {
   success: boolean
@@ -279,9 +281,123 @@ const generateUiTool: Tool = {
   },
 }
 
+// ── Task & Reminder tools ──
+
+const setReminderTool: Tool = {
+  id: 'set_reminder',
+  name: 'Set Reminder',
+  description: 'Set a reminder for a specific time. Supports natural language like "over 30 minuten", "morgen om 09:00", or ISO dates.',
+  icon: '⏰',
+  parameters: {
+    type: 'object',
+    properties: {
+      message: { type: 'string', description: 'Reminder message' },
+      time: { type: 'string', description: 'When to remind — natural language or ISO date' },
+    },
+    required: ['message', 'time'],
+  },
+  clientSide: true,
+  async execute({ message, time }: { message: string; time: string }) {
+    const triggerAt = parseNaturalTime(time)
+    if (!triggerAt) return { success: false, data: null, display: 'text', content: `Kon tijd niet parsen: "${time}"` }
+    const reminder = await addReminder({ message, triggerAt: triggerAt.toISOString() })
+    const formatted = triggerAt.toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' })
+    return { success: true, data: reminder, display: 'text', content: `⏰ Herinnering gezet voor ${formatted}: "${message}"` }
+  },
+}
+
+const addTaskTool: Tool = {
+  id: 'add_task',
+  name: 'Add Task',
+  description: 'Add a to-do task with optional priority and due date.',
+  icon: '✅',
+  parameters: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', description: 'Task title' },
+      description: { type: 'string', description: 'Optional description' },
+      priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority level' },
+      dueDate: { type: 'string', description: 'Due date (ISO or natural language)' },
+    },
+    required: ['title'],
+  },
+  clientSide: true,
+  async execute({ title, description, priority, dueDate }: { title: string; description?: string; priority?: string; dueDate?: string }) {
+    let dueDateISO: string | undefined
+    if (dueDate) {
+      const parsed = parseNaturalTime(dueDate)
+      if (parsed) dueDateISO = parsed.toISOString()
+    }
+    const task = await addTask({ title, description, priority: (priority as any) || 'medium', dueDate: dueDateISO })
+    return { success: true, data: task, display: 'text', content: `✅ Taak toegevoegd: "${title}" [${task.priority}]` }
+  },
+}
+
+const listTasksTool: Tool = {
+  id: 'list_tasks',
+  name: 'List Tasks',
+  description: 'List current tasks, optionally filtered by completion status.',
+  icon: '📋',
+  parameters: {
+    type: 'object',
+    properties: { completed: { type: 'boolean', description: 'Filter: true=completed, false=open, omit=all' } },
+    required: [],
+  },
+  clientSide: true,
+  async execute({ completed }: { completed?: boolean }) {
+    let tasks = await getTasks()
+    if (completed !== undefined) tasks = tasks.filter(t => t.completed === completed)
+    if (tasks.length === 0) return { success: true, data: [], display: 'text', content: 'Geen taken gevonden.' }
+    const lines = tasks.map(t => {
+      const status = t.completed ? '✅' : '⬜'
+      const prio = t.priority === 'high' ? '🔴' : t.priority === 'medium' ? '🟡' : '🟢'
+      return `${status} ${prio} ${t.title}${t.dueDate ? ` (deadline: ${new Date(t.dueDate).toLocaleDateString('nl-NL')})` : ''}`
+    })
+    return { success: true, data: tasks, display: 'text', content: lines.join('\n') }
+  },
+}
+
+const completeTaskTool: Tool = {
+  id: 'complete_task',
+  name: 'Complete Task',
+  description: 'Mark a task as completed by ID or title (fuzzy match).',
+  icon: '☑️',
+  parameters: {
+    type: 'object',
+    properties: {
+      taskId: { type: 'string', description: 'Task ID' },
+      title: { type: 'string', description: 'Task title (fuzzy match)' },
+    },
+    required: [],
+  },
+  clientSide: true,
+  async execute({ taskId, title }: { taskId?: string; title?: string }) {
+    const tasks = await getTasks()
+    let task: Task | undefined
+    if (taskId) task = tasks.find(t => t.id === taskId)
+    else if (title) {
+      const lower = title.toLowerCase()
+      task = tasks.find(t => t.title.toLowerCase().includes(lower))
+    }
+    if (!task) return { success: false, data: null, display: 'text', content: 'Taak niet gevonden.' }
+    await updateTask({ ...task, completed: true, completedAt: new Date().toISOString() })
+    return { success: true, data: task, display: 'text', content: `✅ Taak afgerond: "${task.title}"` }
+  },
+}
+
 // ── Registry ──
 
-export const ALL_TOOLS: Tool[] = [webSearchTool, urlFetchTool, javascriptTool, calculatorTool, datetimeTool, rememberTool, recallTool, getLocationTool, generateUiTool]
+export const ALL_TOOLS: Tool[] = [webSearchTool, urlFetchTool, javascriptTool, calculatorTool, datetimeTool, rememberTool, recallTool, getLocationTool, generateUiTool, setReminderTool, addTaskTool, listTasksTool, completeTaskTool]
+
+// Load plugin tools dynamically
+export async function getAllToolsWithPlugins(): Promise<Tool[]> {
+  try {
+    const pluginTools = await getPluginTools()
+    return [...ALL_TOOLS, ...pluginTools]
+  } catch {
+    return ALL_TOOLS
+  }
+}
 
 export function getEnabledTools(): Tool[] {
   if (typeof window === 'undefined') return ALL_TOOLS

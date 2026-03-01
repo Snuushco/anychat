@@ -2,12 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, MessageSquare, Bot, Settings } from "lucide-react"
+import { Home, MessageSquare, CheckSquare, Bot, Settings, Puzzle } from "lucide-react"
 
 const NAV_ITEMS = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/chat", icon: MessageSquare, label: "Chat" },
+  { href: "/tasks", icon: CheckSquare, label: "Taken" },
   { href: "/agents", icon: Bot, label: "Agents" },
+  { href: "/plugins", icon: Puzzle, label: "Plugins" },
   { href: "/settings", icon: Settings, label: "Instellingen" },
 ]
 
@@ -48,7 +50,7 @@ export function DesktopSidebar() {
 
       {/* Footer */}
       <div className="p-4 border-t border-border/50">
-        <p className="text-[10px] text-muted-foreground text-center">AnyChat v0.2.0</p>
+        <p className="text-[10px] text-muted-foreground text-center">AnyChat v0.3.0</p>
       </div>
     </aside>
   )
