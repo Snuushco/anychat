@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { MessageSquare, Search, PenLine, Code, BarChart3, Palette, ChevronRight, Loader2 } from "lucide-react"
+import { MessageSquare, Search, PenLine, Code, BarChart3, Palette, ChevronRight, Loader2, Settings } from "lucide-react"
 import { getConversations, type Conversation } from "@/lib/chat-store"
+import { getAllKeys } from "@/lib/key-store"
+import { Onboarding } from "@/components/onboarding"
 
 const QUICK_ACTIONS = [
   { icon: MessageSquare, label: "Chat", desc: "Open gesprek", href: "/chat", color: "from-blue-500/20 to-blue-600/5 border-blue-500/20", iconColor: "text-blue-400" },
@@ -27,19 +29,48 @@ export default function HomePage() {
   const [userName, setUserName] = useState("")
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [hasKeys, setHasKeys] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
     const name = localStorage.getItem("anychat_user_name") || ""
+    const onboarded = localStorage.getItem("anychat_onboarded")
     setUserName(name)
+    if (!onboarded) setShowOnboarding(true)
     getConversations().then(convs => {
       setConversations(convs.slice(0, 5))
       setLoading(false)
     })
+    getAllKeys().then(keys => setHasKeys(keys.length > 0))
   }, [])
+
+  if (showOnboarding) {
+    return (
+      <Onboarding onComplete={() => {
+        setShowOnboarding(false)
+        setUserName(localStorage.getItem("anychat_user_name") || "")
+        getAllKeys().then(keys => setHasKeys(keys.length > 0))
+      }} />
+    )
+  }
 
   return (
     <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-3xl mx-auto">
+      {/* No keys banner */}
+      {!hasKeys && (
+        <button
+          onClick={() => router.push("/settings")}
+          className="w-full mb-4 flex items-center gap-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-left transition-all hover:bg-amber-500/15 animate-fade-in"
+        >
+          <Settings className="h-5 w-5 text-amber-400" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-300">Voeg je eerste AI key toe</p>
+            <p className="text-xs text-muted-foreground">Het duurt maar 30 seconden →</p>
+          </div>
+        </button>
+      )}
+
       {/* Greeting */}
       <div className="animate-fade-in mb-8">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">

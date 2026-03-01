@@ -14,8 +14,9 @@ import {
   createConversation, updateConversation, addMessage as storeMessage,
   getMessages, type Message, type Conversation
 } from "@/lib/chat-store"
-import { getAllKeys } from "@/lib/key-store"
+import { getAllKeys, saveApiKey, validateApiKey } from "@/lib/key-store"
 import { SUGGESTED_PROMPTS } from "@/lib/prompts"
+import { InlineKeySetup } from "./inline-key-setup"
 
 interface ChatInterfaceProps {
   conversation: Conversation | null
@@ -35,6 +36,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [agentMode, setAgentMode] = useState(false)
   const [toolsExpanded, setToolsExpanded] = useState(false)
+  const [showKeyGate, setShowKeyGate] = useState<{ provider: import("@/lib/models").Provider; modelName: string; pendingMessage: string } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -61,7 +63,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     loadMessages()
   }, [loadMessages])
 
-  async function loadKeys() {
+  async function loadKeys(): Promise<void> {
     const keys = await getAllKeys()
     setAvailableProviders(new Set(keys.map(k => k.provider)))
   }
@@ -77,6 +79,13 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     if (!text.trim() || isStreaming) return
 
     const model = getModelById(selectedModel) || MODELS[0]
+
+    // Check if user has key for this provider
+    if (!availableProviders.has(model.provider)) {
+      setShowKeyGate({ provider: model.provider, modelName: model.name, pendingMessage: text.trim() })
+      return
+    }
+
     let conv = conversation
 
     if (!conv) {
@@ -246,6 +255,34 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground/50 mt-3">
+                Klik op een suggestie of typ je vraag hieronder
+              </p>
+            </div>
+          )}
+
+          {/* Inline key gate */}
+          {showKeyGate && (
+            <div className="max-w-md mx-auto animate-fade-in">
+              <div className="text-center mb-3">
+                <p className="text-sm">
+                  🔑 Om met <span className="font-semibold">{showKeyGate.modelName}</span> te chatten heb je een key nodig.
+                </p>
+              </div>
+              <InlineKeySetup
+                provider={showKeyGate.provider}
+                onSuccess={() => {
+                  const pending = showKeyGate.pendingMessage
+                  setShowKeyGate(null)
+                  loadKeys().then(() => {
+                    if (pending) handleSend(pending)
+                  })
+                }}
+                onSkip={() => setShowKeyGate(null)}
+              />
+              <p className="text-xs text-muted-foreground text-center mt-3">
+                Of kies een ander model waarvoor je al een key hebt.
+              </p>
             </div>
           )}
 

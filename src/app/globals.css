@@ -165,3 +165,21 @@
 .stagger-children > *:nth-child(6) { animation-delay: 300ms; }
 .stagger-children > *:nth-child(7) { animation-delay: 350ms; }
 .stagger-children > *:nth-child(8) { animation-delay: 400ms; }
+
+/* Bounce once animation */
+@keyframes bounceOnce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.animate-bounce-once {
+  animation: bounceOnce 500ms ease;
+}
+
+/* Subtle pulse for CTA buttons */
+@keyframes subtlePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+}
+.animate-subtle-pulse {
+  animation: subtlePulse 2s ease-in-out infinite;
+}
