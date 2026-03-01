@@ -291,7 +291,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const modelName = getModelById(selectedModel)?.name || "AI"
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5 shrink-0 bg-background/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
