@@ -15,7 +15,7 @@ export default function AgentsPage() {
   }, [])
 
   return (
-    <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-3xl mx-auto">
+    <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-3xl mx-auto animate-page-in">
       <div className="animate-fade-in mb-8">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
           🤖 Agents

@@ -63,7 +63,7 @@ export default function TasksPage() {
   const past = reminders.filter(r => r.fired)
 
   return (
-    <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-2xl mx-auto">
+    <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-2xl mx-auto animate-page-in">
       <div className="animate-fade-in mb-6">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">✅ Taken</h1>
       </div>

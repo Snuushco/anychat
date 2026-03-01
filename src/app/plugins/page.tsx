@@ -97,7 +97,7 @@ export default function PluginsPage() {
   const available = BUILTIN_PLUGINS.filter(bp => !plugins.find(p => p.id === bp.id && p.installed))
 
   return (
-    <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-2xl mx-auto">
+    <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-2xl mx-auto animate-page-in">
       <div className="animate-fade-in mb-6">
         <Link href="/settings" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-2">
           <ArrowLeft className="h-3 w-3" /> Instellingen
