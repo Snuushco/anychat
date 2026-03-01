@@ -52,26 +52,27 @@ function contentToGoogle(content: string | ContentPart[]): any[] {
 }
 
 function friendlyError(status: number, message?: string): string {
-  if (status === 401 || status === 403) return "Je API key is ongeldig of verlopen. Ga naar Instellingen om een nieuwe in te voeren.";
-  if (status === 429) return "Rate limit bereikt. Wacht even en probeer opnieuw.";
-  if (status === 500 || status === 502 || status === 503) return "De AI service is tijdelijk niet bereikbaar. Probeer een ander model.";
-  if (status === 408) return "Het antwoord duurt te lang. Probeer een korter bericht of een sneller model.";
-  return message || `API fout: ${status}`;
+  if (status === 401 || status === 403) return "Your API key is invalid or expired. Go to Settings to add a new one.";
+  if (status === 429) return "Rate limit reached. Please wait a moment and try again.";
+  if (status === 500 || status === 502 || status === 503) return "The AI service is temporarily unavailable. Try another model.";
+  if (status === 408) return "The response is taking too long. Try a shorter message or a faster model.";
+  return message || `API error: ${status}`;
 }
 
 function friendlyCatchError(err: unknown): string {
   if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed'))) {
-    return "Geen internetverbinding. Check je verbinding en probeer opnieuw.";
+    return "No internet connection. Check your connection and try again.";
   }
   if (err instanceof DOMException && err.name === 'AbortError') return '';
   if (err instanceof Error) return err.message;
-  return 'Onbekende fout';
+  return 'Unknown error';
 }
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;
   onDone: (usage: { inputTokens: number; outputTokens: number }) => void;
   onError: (error: string) => void;
+  onMeta?: (meta: { freeRemaining?: number; freeUsed?: number; freeLimit?: number; freeResetAt?: number }) => void;
 }
 
 const OPENAI_COMPATIBLE_ENDPOINTS: Partial<Record<Provider, string>> = {
@@ -90,13 +91,18 @@ export async function streamChat(
   callbacks: StreamCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
-  const apiKey = await getApiKey(provider);
-  if (!apiKey) {
-    callbacks.onError(`Geen API key gevonden voor ${provider}. Voeg er een toe in Instellingen.`);
-    return;
-  }
-
   try {
+    if (provider === 'free') {
+      await streamFree(messages, callbacks, signal);
+      return;
+    }
+
+    const apiKey = await getApiKey(provider);
+    if (!apiKey) {
+      callbacks.onError(`No API key found for ${provider}. Add one in Settings.`);
+      return;
+    }
+
     const endpoint = OPENAI_COMPATIBLE_ENDPOINTS[provider];
     if (endpoint) {
       const extraHeaders: Record<string, string> = {};
@@ -304,6 +310,72 @@ async function streamGoogle(
   cb.onDone(usage);
 }
 
+async function streamFree(
+  messages: ChatMessage[],
+  cb: StreamCallbacks,
+  signal?: AbortSignal
+) {
+  const res = await fetch('/api/free-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+
+  if (res.status === 429) {
+    const data = await res.json().catch(() => ({ error: 'Daily free limit reached. Add your own API key for unlimited access.' }));
+    cb.onError(data.error || 'Daily free limit reached. Add your own API key for unlimited access.');
+    return;
+  }
+
+  if (!res.ok) {
+    cb.onError('Free model unavailable. Try adding your own API key.');
+    return;
+  }
+
+  const freeMeta = {
+    freeLimit: Number(res.headers.get('x-free-limit') || 20),
+    freeUsed: Number(res.headers.get('x-free-used') || 0),
+    freeRemaining: Number(res.headers.get('x-free-remaining') || 0),
+    freeResetAt: Number(res.headers.get('x-free-reset-at') || 0),
+  };
+  cb.onMeta?.(freeMeta);
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let usage = { inputTokens: 0, outputTokens: 0 };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          cb.onToken(data.candidates[0].content.parts[0].text);
+        }
+        if (data.usageMetadata) {
+          usage = {
+            inputTokens: data.usageMetadata.promptTokenCount || 0,
+            outputTokens: data.usageMetadata.candidatesTokenCount || 0,
+          };
+        }
+      } catch {
+        // Skip malformed chunks
+      }
+    }
+  }
+
+  cb.onDone(usage);
+}
+
 async function streamCohere(
   apiKey: string, model: string, messages: ChatMessage[],
   cb: StreamCallbacks, signal?: AbortSignal
@@ -375,9 +447,14 @@ export async function streamChatWithTools(
   callbacks: ToolCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
+  if (provider === 'free') {
+    await streamChat(modelId, provider, messages, callbacks, signal);
+    return;
+  }
+
   const apiKey = await getApiKey(provider);
   if (!apiKey) {
-    callbacks.onError(`Geen API key gevonden voor ${provider}. Voeg er een toe in Instellingen.`);
+    callbacks.onError(`No API key found for ${provider}. Add one in Settings.`);
     return;
   }
 

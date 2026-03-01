@@ -1,4 +1,4 @@
-export type Provider = 'openai' | 'anthropic' | 'google' | 'xai' | 'mistral' | 'deepseek' | 'cohere' | 'groq' | 'openrouter';
+export type Provider = 'free' | 'openai' | 'anthropic' | 'google' | 'xai' | 'mistral' | 'deepseek' | 'cohere' | 'groq' | 'openrouter';
 
 export interface AIModel {
   id: string;
@@ -12,6 +12,17 @@ export interface AIModel {
 }
 
 export const MODELS: AIModel[] = [
+  // Free
+  {
+    id: 'free',
+    name: 'AnyChat Free',
+    provider: 'free' as Provider,
+    inputCostPer1k: 0,
+    outputCostPer1k: 0,
+    maxTokens: 128000,
+    description: 'Free model powered by Gemini Flash. 20 messages/day. No API key needed.',
+    speed: 'fast' as const,
+  },
   // OpenAI
   {
     id: 'gpt-4.1',
@@ -20,7 +31,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.002,
     outputCostPer1k: 0.008,
     maxTokens: 1048576,
-    description: 'Nieuwste vlaggenschip. Slim en snel.',
+    description: 'Latest flagship model. Smart and fast.',
     speed: 'medium',
   },
   {
@@ -30,7 +41,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0004,
     outputCostPer1k: 0.0016,
     maxTokens: 1048576,
-    description: 'Snel en betaalbaar. Dagelijks gebruik.',
+    description: 'Fast and affordable. Great for everyday use.',
     speed: 'fast',
   },
   {
@@ -40,7 +51,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0001,
     outputCostPer1k: 0.0004,
     maxTokens: 1048576,
-    description: 'Supersnel en goedkoopst. Simpele taken.',
+    description: 'Super fast and cheapest. Best for simple tasks.',
     speed: 'fast',
   },
   {
@@ -50,7 +61,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0011,
     outputCostPer1k: 0.0044,
     maxTokens: 200000,
-    description: 'Redeneer-model voor complexe problemen.',
+    description: 'Reasoning model for complex problems.',
     speed: 'slow',
   },
   // Anthropic
@@ -61,7 +72,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.015,
     outputCostPer1k: 0.075,
     maxTokens: 200000,
-    description: 'Meest capabel. Complexe taken & creativiteit.',
+    description: 'Most capable. Great for complex tasks and creativity.',
     speed: 'slow',
   },
   {
@@ -71,7 +82,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.003,
     outputCostPer1k: 0.015,
     maxTokens: 200000,
-    description: 'Uitstekend voor schrijven en analyse.',
+    description: 'Excellent for writing and analysis.',
     speed: 'medium',
   },
   {
@@ -81,7 +92,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0008,
     outputCostPer1k: 0.004,
     maxTokens: 200000,
-    description: 'Snel en betaalbaar. Dagelijks gebruik.',
+    description: 'Fast and affordable. Great for everyday use.',
     speed: 'fast',
   },
   // Google
@@ -92,7 +103,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.00125,
     outputCostPer1k: 0.01,
     maxTokens: 1048576,
-    description: 'Krachtig met groot context window.',
+    description: 'Powerful model with a large context window.',
     speed: 'medium',
   },
   {
@@ -102,7 +113,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.00015,
     outputCostPer1k: 0.0006,
     maxTokens: 1048576,
-    description: 'Razendsnel en goedkoop.',
+    description: 'Lightning fast and low cost.',
     speed: 'fast',
   },
   // xAI
@@ -113,7 +124,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.003,
     outputCostPer1k: 0.015,
     maxTokens: 131072,
-    description: 'Krachtig model van xAI.',
+    description: 'Powerful model from xAI.',
     speed: 'medium',
   },
   {
@@ -123,7 +134,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0003,
     outputCostPer1k: 0.0005,
     maxTokens: 131072,
-    description: 'Snel en betaalbaar van xAI.',
+    description: 'Fast and affordable model from xAI.',
     speed: 'fast',
   },
   // Mistral
@@ -134,7 +145,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.002,
     outputCostPer1k: 0.006,
     maxTokens: 128000,
-    description: 'Krachtigste Mistral model.',
+    description: 'Most powerful Mistral model.',
     speed: 'medium',
   },
   {
@@ -144,7 +155,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0001,
     outputCostPer1k: 0.0003,
     maxTokens: 128000,
-    description: 'Snel en efficiënt.',
+    description: 'Fast and efficient.',
     speed: 'fast',
   },
   // DeepSeek
@@ -155,7 +166,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.00014,
     outputCostPer1k: 0.00028,
     maxTokens: 128000,
-    description: 'Betaalbaar en capabel.',
+    description: 'Affordable and capable.',
     speed: 'medium',
   },
   {
@@ -165,7 +176,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.00055,
     outputCostPer1k: 0.0022,
     maxTokens: 128000,
-    description: 'Redeneermodel voor complexe problemen.',
+    description: 'Reasoning model for complex problems.',
     speed: 'slow',
   },
   // Cohere
@@ -176,7 +187,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0025,
     outputCostPer1k: 0.01,
     maxTokens: 128000,
-    description: 'Krachtigste Cohere model.',
+    description: 'Most powerful Cohere model.',
     speed: 'medium',
   },
   {
@@ -186,7 +197,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.00015,
     outputCostPer1k: 0.0006,
     maxTokens: 128000,
-    description: 'Snel en betaalbaar.',
+    description: 'Fast and affordable.',
     speed: 'fast',
   },
   // Groq
@@ -197,7 +208,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.00059,
     outputCostPer1k: 0.00079,
     maxTokens: 128000,
-    description: 'Krachtig open-source model, razendsnel.',
+    description: 'Powerful open-source model, blazing fast.',
     speed: 'fast',
   },
   {
@@ -207,7 +218,7 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.00005,
     outputCostPer1k: 0.00008,
     maxTokens: 128000,
-    description: 'Ultra-snel voor simpele taken.',
+    description: 'Ultra-fast for simple tasks.',
     speed: 'fast',
   },
   // OpenRouter
@@ -218,12 +229,19 @@ export const MODELS: AIModel[] = [
     inputCostPer1k: 0.0,
     outputCostPer1k: 0.0,
     maxTokens: 128000,
-    description: 'Automatisch beste model. Kosten variëren per model.',
+    description: 'Automatically picks the best model. Costs vary by model.',
     speed: 'medium',
   },
 ];
 
 export const PROVIDER_INFO: Record<Provider, { name: string; color: string; icon: string; keyPrefix: string; keyUrl: string }> = {
+  free: {
+    name: 'Free',
+    color: '#10B981',
+    icon: '🎁',
+    keyPrefix: '',
+    keyUrl: '',
+  },
   openai: {
     name: 'OpenAI',
     color: '#10A37F',
@@ -305,3 +323,4 @@ export function calculateCost(model: AIModel, inputTokens: number, outputTokens:
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
+

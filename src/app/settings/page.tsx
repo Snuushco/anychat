@@ -63,7 +63,7 @@ export default function SettingsPage() {
   }
 
   async function handleClearMemories() {
-    if (confirm('Weet je zeker dat je alle herinneringen wilt wissen?')) {
+    if (confirm('Are you sure you want to clear all memories?')) {
       await clearAllMemories()
       setMemories([])
     }
@@ -82,7 +82,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-2xl mx-auto animate-page-in">
       <div className="animate-fade-in mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">⚙️ Instellingen</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">⚙️ Settings</h1>
       </div>
 
       <div className="space-y-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
@@ -90,17 +90,17 @@ export default function SettingsPage() {
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
           <div className="flex items-center gap-2 mb-4">
             <User className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold text-sm">Profiel</h2>
+            <h2 className="font-semibold text-sm">Profile</h2>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Naam</label>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Name</label>
             <Input
               value={userName}
               onChange={(e) => saveName(e.target.value)}
-              placeholder="Jouw naam"
+              placeholder="Your name"
               className="max-w-xs"
             />
-            <p className="text-[11px] text-muted-foreground mt-1.5">Wordt gebruikt in de begroeting op het dashboard</p>
+            <p className="text-[11px] text-muted-foreground mt-1.5">Used in the dashboard greeting</p>
           </div>
         </section>
 
@@ -117,15 +117,16 @@ export default function SettingsPage() {
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
           <div className="flex items-center gap-2 mb-4">
             <Info className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold text-sm">Model Voorkeuren</h2>
+            <h2 className="font-semibold text-sm">Model Preferences</h2>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1.5 block">Standaard model</label>
+            <label className="text-xs text-muted-foreground mb-1.5 block">Default model</label>
             <select
               value={defaultModel}
               onChange={(e) => saveDefaultModel(e.target.value)}
               className="w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm"
             >
+              <option value="free">AnyChat Free</option>
               <option value="gpt-4.1">GPT-4.1</option>
               <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
               <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
@@ -142,7 +143,7 @@ export default function SettingsPage() {
             <h2 className="font-semibold text-sm">Agent Tools</h2>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            Kies welke tools beschikbaar zijn in Agent modus
+            Choose which tools are available in Agent mode
           </p>
           <div className="space-y-2">
             {ALL_TOOLS.map(tool => (
@@ -174,7 +175,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Brain className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-semibold text-sm">Geheugen</h2>
+              <h2 className="font-semibold text-sm">Memory</h2>
               <span className="text-xs text-muted-foreground">({memories.length})</span>
             </div>
             {memories.length > 0 && (
@@ -182,13 +183,13 @@ export default function SettingsPage() {
                 onClick={handleClearMemories}
                 className="text-xs text-destructive hover:text-destructive/80 transition-colors"
               >
-                Wis alles
+                Clear all
               </button>
             )}
           </div>
           {memories.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              Nog geen herinneringen. De AI kan dingen onthouden via de &apos;remember&apos; tool in Agent modus.
+              No memories yet. The AI can remember things via the &apos;remember&apos; tool in Agent mode.
             </p>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -215,7 +216,7 @@ export default function SettingsPage() {
           <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
             <div className="flex items-center gap-2 mb-4">
               <Volume2 className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-semibold text-sm">Spraak</h2>
+              <h2 className="font-semibold text-sm">Speech</h2>
             </div>
             <div className="space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
@@ -229,13 +230,13 @@ export default function SettingsPage() {
                   className="rounded border-border"
                 />
                 <div>
-                  <p className="text-sm font-medium">Automatisch voorlezen</p>
-                  <p className="text-[11px] text-muted-foreground">AI-antwoorden automatisch uitspreken</p>
+                  <p className="text-sm font-medium">Auto read aloud</p>
+                  <p className="text-[11px] text-muted-foreground">Automatically speak AI responses</p>
                 </div>
               </label>
               {voices.length > 0 && (
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">Stem</label>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Voice</label>
                   <select
                     value={selectedVoiceName}
                     onChange={(e) => {
@@ -244,7 +245,7 @@ export default function SettingsPage() {
                     }}
                     className="w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   >
-                    <option value="">Automatisch (Nederlands)</option>
+                    <option value="">Automatic (English)</option>
                     {voices.map(v => (
                       <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
                     ))}
@@ -259,18 +260,18 @@ export default function SettingsPage() {
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
           <div className="flex items-center gap-2 mb-4">
             <Bell className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold text-sm">Notificaties</h2>
+            <h2 className="font-semibold text-sm">Notifications</h2>
           </div>
           <button
             onClick={async () => {
               const granted = await requestNotificationPermission()
-              alert(granted ? 'Notificaties ingeschakeld!' : 'Notificaties geweigerd of niet beschikbaar.')
+              alert(granted ? 'Notifications enabled!' : 'Notifications denied or not available.')
             }}
             className="px-4 py-2 rounded-lg bg-accent-primary/20 text-accent-primary text-sm font-medium hover:bg-accent-primary/30 transition-colors"
           >
-            Notificaties inschakelen
+            Enable notifications
           </button>
-          <p className="text-[11px] text-muted-foreground mt-2">Nodig voor herinneringen wanneer de app op de achtergrond draait.</p>
+          <p className="text-[11px] text-muted-foreground mt-2">Required for reminders when the app is in the background.</p>
         </section>
 
         {/* Plugins */}
@@ -279,12 +280,12 @@ export default function SettingsPage() {
             <Puzzle className="h-4 w-4 text-muted-foreground" />
             <h2 className="font-semibold text-sm">Plugins</h2>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">Breid AnyChat uit met extra tools en integraties.</p>
+          <p className="text-xs text-muted-foreground mb-3">Extend AnyChat with extra tools and integrations.</p>
           <Link
             href="/plugins"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-muted text-sm font-medium hover:bg-muted/80 transition-colors"
           >
-            <Puzzle className="h-3.5 w-3.5" /> Plugin beheer →
+            <Puzzle className="h-3.5 w-3.5" /> Manage plugins →
           </Link>
         </section>
 
@@ -292,12 +293,12 @@ export default function SettingsPage() {
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
           <div className="flex items-center gap-2 mb-4">
             <Palette className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold text-sm">Weergave</h2>
+            <h2 className="font-semibold text-sm">Appearance</h2>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm">Thema</p>
-              <p className="text-xs text-muted-foreground">Kies licht, donker of systeemvoorkeur</p>
+              <p className="text-sm">Theme</p>
+              <p className="text-xs text-muted-foreground">Choose light, dark, or system preference</p>
             </div>
             <ThemeToggle />
           </div>
@@ -307,11 +308,11 @@ export default function SettingsPage() {
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
           <div className="flex items-center gap-2 mb-3">
             <Info className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold text-sm">Over AnyChat</h2>
+            <h2 className="font-semibold text-sm">About AnyChat</h2>
           </div>
           <p className="text-xs text-muted-foreground">
-            Versie 0.3.0 — AI Command Centre<br />
-            Je API keys verlaten nooit je apparaat. Alles wordt lokaal versleuteld opgeslagen.
+            Version 0.3.0 — AI Command Centre<br />
+            Your API keys never leave your device. Everything is encrypted and stored locally.
           </p>
         </section>
       </div>

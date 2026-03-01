@@ -11,10 +11,11 @@ interface OnboardingProps {
   onComplete: () => void
 }
 
-const PROVIDERS: { provider: Provider; name: string; subtitle: string; icon: string; badge?: string }[] = [
-  { provider: "openai", name: "OpenAI (ChatGPT)", subtitle: "Meest populair", icon: "🟢", badge: "Populair" },
-  { provider: "anthropic", name: "Anthropic (Claude)", subtitle: "Beste voor schrijven", icon: "🟤" },
-  { provider: "google", name: "Google (Gemini)", subtitle: "Gratis opties", icon: "🔵", badge: "Gratis" },
+const PROVIDERS: { provider: Provider; name: string; subtitle: string; icon: string; badge?: string; prominent?: boolean }[] = [
+  { provider: "free", name: "Start free — No API key needed", subtitle: "20 messages/day with Gemini Flash", icon: "🎁", badge: "Recommended", prominent: true },
+  { provider: "openai", name: "OpenAI (ChatGPT)", subtitle: "Most popular", icon: "🟢", badge: "Popular" },
+  { provider: "anthropic", name: "Anthropic (Claude)", subtitle: "Best for writing", icon: "🟤" },
+  { provider: "google", name: "Google (Gemini)", subtitle: "Great value", icon: "🔵" },
 ]
 
 export function Onboarding({ onComplete }: OnboardingProps) {
@@ -30,6 +31,14 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   }
 
   function handleProviderSelect(provider: Provider) {
+    if (provider === 'free') {
+      localStorage.setItem("anychat_default_model", "free")
+      localStorage.setItem("anychat_onboarded", "true")
+      if (name.trim()) localStorage.setItem("anychat_user_name", name.trim())
+      onComplete()
+      return
+    }
+
     setSelectedProvider(provider)
     setStep(3)
   }
@@ -65,14 +74,14 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           <div className="space-y-6 animate-fade-in text-center">
             <div>
               <p className="text-5xl mb-4">👋</p>
-              <h1 className="text-2xl font-bold">Welkom bij AnyChat</h1>
-              <p className="text-muted-foreground mt-2">Hoe wil je genoemd worden?</p>
+              <h1 className="text-2xl font-bold">Welcome to AnyChat</h1>
+              <p className="text-muted-foreground mt-2">What should we call you?</p>
             </div>
             <div className="space-y-3">
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Je naam..."
+                placeholder="Your name..."
                 className="text-center text-lg h-12"
                 onKeyDown={(e) => e.key === "Enter" && handleNameSubmit()}
                 autoFocus
@@ -82,7 +91,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 disabled={!name.trim()}
                 className="w-full h-12 bg-accent-primary hover:bg-accent-primary/90 text-white text-base"
               >
-                Verder <ArrowRight className="h-4 w-4 ml-2" />
+                Continue <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
           </div>
@@ -92,17 +101,21 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         {step === 2 && (
           <div className="space-y-6 animate-fade-in">
             <div className="text-center">
-              <h1 className="text-2xl font-bold">Kies je AI</h1>
+              <h1 className="text-2xl font-bold">Choose your AI</h1>
               <p className="text-muted-foreground mt-2">
-                Welke AI wil je gebruiken? Je kunt later meer toevoegen.
+                Which AI do you want to use? You can add more later.
               </p>
             </div>
             <div className="space-y-3">
-              {PROVIDERS.map(({ provider, name: pName, subtitle, icon, badge }) => (
+              {PROVIDERS.map(({ provider, name: pName, subtitle, icon, badge, prominent }) => (
                 <button
                   key={provider}
                   onClick={() => handleProviderSelect(provider)}
-                  className="w-full flex items-center gap-4 p-4 rounded-2xl border border-border/50 bg-card/50 text-left transition-all duration-200 hover:border-accent-primary/30 hover:scale-[1.02] active:scale-[0.98]"
+                  className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
+                    prominent
+                      ? "border-2 border-emerald-500/60 bg-emerald-500/10 hover:border-emerald-500"
+                      : "border border-border/50 bg-card/50 hover:border-accent-primary/30"
+                  }`}
                 >
                   <span className="text-3xl">{icon}</span>
                   <div className="flex-1">
@@ -123,10 +136,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
             <div className="text-center space-y-2">
               <p className="text-xs text-muted-foreground">
-                Of gebruik <button onClick={() => handleProviderSelect("openrouter")} className="text-accent-primary hover:underline">OpenRouter</button> voor toegang tot alle modellen met 1 key
+                Or use <button onClick={() => handleProviderSelect("openrouter")} className="text-accent-primary hover:underline">OpenRouter</button> for access to all models with 1 key
               </p>
               <button onClick={handleSkip} className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors">
-                Later instellen
+                Set up later
               </button>
             </div>
           </div>
@@ -136,9 +149,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         {step === 3 && selectedProvider && (
           <div className="space-y-6 animate-fade-in">
             <div className="text-center">
-              <h1 className="text-2xl font-bold">Bijna klaar!</h1>
+              <h1 className="text-2xl font-bold">Almost there!</h1>
               <p className="text-muted-foreground mt-2">
-                Nog even je key instellen en je kunt aan de slag.
+                Just set up your key and you're good to go.
               </p>
             </div>
 
@@ -152,7 +165,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               onClick={() => setStep(2)}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors block mx-auto"
             >
-              ← Andere provider kiezen
+              ← Choose another provider
             </button>
           </div>
         )}

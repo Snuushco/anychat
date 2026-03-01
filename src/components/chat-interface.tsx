@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,12 @@ interface ChatInterfaceProps {
   agentSystemPrompt?: string | null
 }
 
+interface FreeUsageState {
+  count: number
+  date: string
+  limit: number
+}
+
 export function ChatInterface({ conversation, onConversationCreated, onConversationUpdated, agentSystemPrompt }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -49,14 +56,14 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
   const [memoryContext, setMemoryContext] = useState<string>("")
   const [allTools, setAllTools] = useState<Tool[]>(ALL_TOOLS)
+  const [freeUsage, setFreeUsage] = useState<FreeUsageState | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    const saved = localStorage.getItem("anychat_default_model")
-    if (saved) setSelectedModel(saved)
-    loadKeys()
+    loadKeysAndDefaultModel()
+    loadFreeUsageState()
     // Load memory context
     getRecentMemories(20).then(memories => {
       setMemoryContext(buildMemoryContext(memories))
@@ -81,9 +88,44 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     loadMessages()
   }, [loadMessages])
 
-  async function loadKeys(): Promise<void> {
+  function getTodayDateKey(): string {
+    return new Date().toISOString().slice(0, 10)
+  }
+
+  function loadFreeUsageState() {
+    try {
+      const raw = localStorage.getItem("anychat_free_usage")
+      if (!raw) return
+      const parsed = JSON.parse(raw) as FreeUsageState
+      if (parsed?.date === getTodayDateKey()) {
+        setFreeUsage(parsed)
+      } else {
+        const reset = { count: 0, date: getTodayDateKey(), limit: 20 }
+        localStorage.setItem("anychat_free_usage", JSON.stringify(reset))
+        setFreeUsage(reset)
+      }
+    } catch {
+      // ignore invalid local storage
+    }
+  }
+
+  async function loadKeysAndDefaultModel(): Promise<void> {
     const keys = await getAllKeys()
-    setAvailableProviders(new Set(keys.map(k => k.provider)))
+    const providers = new Set<string>(["free", ...keys.map(k => k.provider)])
+    setAvailableProviders(providers)
+
+    const saved = localStorage.getItem("anychat_default_model")
+    if (saved) {
+      setSelectedModel(saved)
+      return
+    }
+
+    if (keys.length === 0) {
+      setSelectedModel("free")
+      return
+    }
+
+    setSelectedModel("gpt-4.1")
   }
 
   useEffect(() => {
@@ -99,7 +141,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     const model = getModelById(selectedModel) || MODELS[0]
 
     // Check if user has key for this provider
-    if (!availableProviders.has(model.provider)) {
+    if (model.provider !== 'free' && !availableProviders.has(model.provider)) {
       setShowKeyGate({ provider: model.provider, modelName: model.name, pendingMessage: text.trim() })
       return
     }
@@ -146,7 +188,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     // Inject agent system prompt if present
     if (agentSystemPrompt) {
       aiMessages.push({ role: 'user' as const, content: `[System]: ${agentSystemPrompt}` })
-      aiMessages.push({ role: 'assistant' as const, content: "Begrepen, ik neem deze rol aan." })
+      aiMessages.push({ role: 'assistant' as const, content: "Understood, I'll take on this role." })
     }
 
     // Build the messages, with the last user message potentially multimodal
@@ -166,7 +208,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
           const base64 = att.dataUrl.split(',')[1]
           parts.push({ type: 'image', mimeType: att.type, data: base64 })
         } else if (att.textContent) {
-          parts.push({ type: 'text', text: `\n\n--- Bestand: ${att.name} ---\n${att.textContent}\n---` })
+          parts.push({ type: 'text', text: `\n\n--- File: ${att.name} ---\n${att.textContent}\n---` })
         }
       }
       aiMessages.push({ role: 'user', content: parts })
@@ -183,6 +225,14 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     let fullContent = ""
 
     const onDone = async (usage: { inputTokens: number; outputTokens: number }) => {
+      if (model.provider === 'free') {
+        const today = getTodayDateKey()
+        const current = freeUsage && freeUsage.date === today ? freeUsage : { count: 0, date: today, limit: 20 }
+        const nextUsage = { ...current, count: Math.min(current.limit, current.count + 1) }
+        setFreeUsage(nextUsage)
+        localStorage.setItem("anychat_free_usage", JSON.stringify(nextUsage))
+      }
+
       const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
       const assistantMsg: Message = {
         id: crypto.randomUUID(),
@@ -203,7 +253,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
       // Auto-speak if enabled
       if (getAutoSpeak() && fullContent) {
-        speak(fullContent, 'nl-NL', getSelectedVoice() || undefined)
+        speak(fullContent, 'en-US', getSelectedVoice() || undefined)
       }
 
       const updatedConv: Conversation = {
@@ -266,7 +316,21 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
         },
       }, controller.signal)
     } else {
-      await streamChat(model.id, model.provider, aiMessages, { onToken, onDone, onError }, controller.signal)
+      await streamChat(model.id, model.provider, aiMessages, {
+        onToken,
+        onDone,
+        onError,
+        onMeta: (meta) => {
+          if (model.provider !== 'free') return
+          const usageState: FreeUsageState = {
+            count: meta.freeUsed ?? 0,
+            date: getTodayDateKey(),
+            limit: meta.freeLimit ?? 20,
+          }
+          setFreeUsage(usageState)
+          localStorage.setItem("anychat_free_usage", JSON.stringify(usageState))
+        },
+      }, controller.signal)
     }
   }
 
@@ -322,6 +386,17 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
         )}
       </div>
 
+      {selectedModel === 'free' && (
+        <div className="px-4 py-2 border-b border-border/40 bg-emerald-500/5">
+          <div className="max-w-2xl mx-auto text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>🎁 Free mode · {Math.max(0, (freeUsage?.limit ?? 20) - (freeUsage?.count ?? 0))}/{freeUsage?.limit ?? 20} messages remaining today</span>
+            <Link href="/settings" className="text-emerald-500 hover:underline">
+              Add your own API key for unlimited access →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4" ref={scrollRef}>
         <div className="max-w-2xl mx-auto py-4 space-y-4">
@@ -329,9 +404,9 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             <div className="text-center py-16 space-y-6 animate-fade-in">
               <div>
                 <p className="text-4xl mb-3">⚡</p>
-                <h2 className="text-xl font-semibold">Waarmee kan ik helpen?</h2>
+                <h2 className="text-xl font-semibold">What can I help with?</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {agentSystemPrompt ? "Agent staat klaar" : `Powered by ${modelName}`}
+                  {agentSystemPrompt ? "Agent ready" : `Powered by ${modelName}`}
                 </p>
               </div>
 
@@ -349,7 +424,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                 ))}
               </div>
               <p className="text-xs text-muted-foreground/50 mt-3">
-                Klik op een suggestie of typ je vraag hieronder
+                Click a suggestion or type your question below
               </p>
             </div>
           )}
@@ -359,7 +434,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             <div className="max-w-md mx-auto animate-fade-in">
               <div className="text-center mb-3">
                 <p className="text-sm">
-                  🔑 Om met <span className="font-semibold">{showKeyGate.modelName}</span> te chatten heb je een key nodig.
+                  🔑 To chat with <span className="font-semibold">{showKeyGate.modelName}</span> you need a key.
                 </p>
               </div>
               <InlineKeySetup
@@ -367,14 +442,14 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                 onSuccess={() => {
                   const pending = showKeyGate.pendingMessage
                   setShowKeyGate(null)
-                  loadKeys().then(() => {
+                  loadKeysAndDefaultModel().then(() => {
                     if (pending) handleSend(pending)
                   })
                 }}
                 onSkip={() => setShowKeyGate(null)}
               />
               <p className="text-xs text-muted-foreground text-center mt-3">
-                Of kies een ander model waarvoor je al een key hebt.
+                Or pick a different model you already have a key for.
               </p>
             </div>
           )}
@@ -407,7 +482,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                       <button
                         onClick={() => speak(msg.content, 'nl-NL', getSelectedVoice() || undefined)}
                         className="text-muted-foreground hover:text-foreground transition-colors"
-                        title="Voorlezen"
+                        title="Read aloud"
                       >
                         <Volume2 className="h-3 w-3" />
                       </button>
@@ -442,7 +517,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-primary/60 animate-bounce" style={{ animationDelay: "150ms" }} />
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-primary/60 animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
-                <span className="text-xs text-muted-foreground">{modelName} is aan het denken...</span>
+                <span className="text-xs text-muted-foreground">{modelName} is thinking...</span>
               </div>
             </div>
           )}
@@ -491,7 +566,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Typ een bericht..."
+              placeholder="Type a message..."
               className="min-h-[36px] max-h-[120px] resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0 py-1.5 text-sm"
               rows={1}
             />

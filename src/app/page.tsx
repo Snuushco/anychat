@@ -50,33 +50,33 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 /* ─── Model card data ─── */
 const MODELS = [
-  { name: "GPT-4o", provider: "OpenAI", icon: "🟢", price: "~€0.01/msg" },
-  { name: "Claude 3.5", provider: "Anthropic", icon: "🟤", price: "~€0.01/msg" },
-  { name: "Gemini Pro", provider: "Google", icon: "🔵", price: "Gratis tier" },
-  { name: "Grok", provider: "xAI", icon: "⚡", price: "~€0.01/msg" },
-  { name: "DeepSeek V3", provider: "DeepSeek", icon: "🔮", price: "~€0.002/msg" },
-  { name: "Mistral Large", provider: "Mistral", icon: "🟠", price: "~€0.008/msg" },
-  { name: "Llama 3.1", provider: "Meta (via OR)", icon: "🦙", price: "~€0.003/msg" },
-  { name: "Command R+", provider: "Cohere", icon: "🔴", price: "~€0.005/msg" },
-  { name: "Qwen 2.5", provider: "Alibaba (via OR)", icon: "🟣", price: "~€0.002/msg" },
-  { name: "OpenRouter", provider: "200+ modellen", icon: "🌐", price: "Varies" },
+  { name: "GPT-4o", provider: "OpenAI", icon: "🟢", price: "~$0.01/msg" },
+  { name: "Claude 3.5", provider: "Anthropic", icon: "🟤", price: "~$0.01/msg" },
+  { name: "Gemini Pro", provider: "Google", icon: "🔵", price: "Free tier" },
+  { name: "Grok", provider: "xAI", icon: "⚡", price: "~$0.01/msg" },
+  { name: "DeepSeek V3", provider: "DeepSeek", icon: "🔮", price: "~$0.002/msg" },
+  { name: "Mistral Large", provider: "Mistral", icon: "🟠", price: "~$0.008/msg" },
+  { name: "Llama 3.1", provider: "Meta (via OR)", icon: "🦙", price: "~$0.003/msg" },
+  { name: "Command R+", provider: "Cohere", icon: "🔴", price: "~$0.005/msg" },
+  { name: "Qwen 2.5", provider: "Alibaba (via OR)", icon: "🟣", price: "~$0.002/msg" },
+  { name: "OpenRouter", provider: "200+ models", icon: "🌐", price: "Varies" },
 ]
 
 const FEATURES = [
-  { emoji: "🤖", title: "10+ AI Modellen", desc: "GPT-4, Claude, Gemini, Grok, DeepSeek, Mistral en meer. Switch wanneer je wilt." },
-  { emoji: "🔧", title: "Tools & Agents", desc: "Web search, code uitvoering, berekeningen. Je AI doet het werk." },
-  { emoji: "🔒", title: "100% Privacy", desc: "Je keys blijven op je apparaat. Wij zien niks, slaan niks op." },
-  { emoji: "📱", title: "Mobile-First", desc: "Installeerbaar als app. Push notificaties. Camera & voice." },
-  { emoji: "🧠", title: "Geheugen", desc: "Je AI onthoudt je voorkeuren en context. Elke sessie wordt slimmer." },
-  { emoji: "🔌", title: "Plugins", desc: "Weer, QR codes, vertalingen. Of maak je eigen tools." },
+  { emoji: "🤖", title: "10+ AI Models", desc: "GPT-4, Claude, Gemini, Grok, DeepSeek, Mistral and more. Switch anytime." },
+  { emoji: "🔧", title: "Tools & Agents", desc: "Web search, code execution, calculations. Your AI does the heavy lifting." },
+  { emoji: "🔒", title: "100% Privacy", desc: "Your keys stay on your device. We see nothing, store nothing." },
+  { emoji: "📱", title: "Mobile-First", desc: "Installable as an app. Push notifications. Camera & voice." },
+  { emoji: "🧠", title: "Memory", desc: "Your AI remembers your preferences and context. Every session gets smarter." },
+  { emoji: "🔌", title: "Plugins", desc: "Weather, QR codes, translations. Or build your own tools." },
 ]
 
 const FAQ = [
-  { q: "Wat is een API key?", a: "Een API key is een soort wachtwoord dat je krijgt van een AI-provider (zoals OpenAI). Hiermee betaal je direct aan de provider — zonder tussenpersoon. Je maakt er eentje aan op hun website, kost 2 minuten." },
-  { q: "Is het veilig?", a: "Ja. Je keys worden versleuteld opgeslagen op je eigen apparaat en verlaten nooit je telefoon. AnyChat stuurt je berichten rechtstreeks naar de AI-provider. Wij kunnen je data niet zien, zelfs als we zouden willen." },
-  { q: "Wat kost het?", a: "Het platform is 100% gratis. Je betaalt alleen voor wat je daadwerkelijk gebruikt aan de AI-provider. Gemiddeld is dat €2-5 per maand bij normaal gebruik — een fractie van ChatGPT Plus (€20/mnd)." },
-  { q: "Werkt het op mijn telefoon?", a: "Ja! AnyChat is een PWA (Progressive Web App) en werkt in elke moderne browser op iOS, Android en desktop. Geen App Store nodig." },
-  { q: "Kan ik het als app installeren?", a: "Absoluut. Open AnyChat in je browser, tik op 'Deel' → 'Zet op beginscherm' (iOS) of het installatie-icoontje (Android/Chrome). Je krijgt een volwaardige app-ervaring." },
+  { q: "What is an API key?", a: "An API key is like a password you get from an AI provider (like OpenAI). It lets you pay the provider directly — no middleman. You create one on their website, takes 2 minutes." },
+  { q: "Is it safe?", a: "Yes. Your keys are encrypted on your own device and never leave your phone. AnyChat sends your messages directly to the AI provider. We can't see your data, even if we wanted to." },
+  { q: "How much does it cost?", a: "The platform is 100% free. You only pay for what you actually use at the AI provider. On average that's $2-5 per month with normal use — a fraction of ChatGPT Plus ($20/mo)." },
+  { q: "Does it work on my phone?", a: "Yes! AnyChat is a PWA (Progressive Web App) and works in any modern browser on iOS, Android and desktop. No App Store needed." },
+  { q: "Can I install it as an app?", a: "Absolutely. Open AnyChat in your browser, tap 'Share' → 'Add to Home Screen' (iOS) or the install icon (Android/Chrome). You get a full app experience." },
 ]
 
 export default function LandingPage() {
@@ -125,17 +125,17 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
           <Section>
             <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.1]">
-              Jouw AI.<br />
+              Start chatting for free.<br />
               <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent">
-                Jouw regels.
+                No account, no credit card,
               </span><br />
-              Jouw data.
+              no API key.
             </h1>
           </Section>
           <Section delay={150}>
             <p className="mt-6 text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
-              De krachtigste AI assistant op je telefoon. Gebruik je eigen keys,
-              betaal alleen wat je gebruikt, en houd volledige controle.
+              Jump in instantly with AnyChat Free, or bring your own keys for unlimited power.
+              Pay only for what you use and stay in full control.
             </p>
           </Section>
           <Section delay={300}>
@@ -144,13 +144,13 @@ export default function LandingPage() {
                 href="/dashboard"
                 className="px-8 py-4 rounded-full bg-indigo-500 hover:bg-indigo-400 text-lg font-bold transition-all hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-105 active:scale-95"
               >
-                Start Gratis →
+                Get Started Free →
               </Link>
               <button
                 onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
                 className="px-8 py-4 rounded-full border border-white/20 hover:border-white/40 text-lg font-medium transition-all hover:bg-white/5"
               >
-                Bekijk demo ↓
+                See how it works ↓
               </button>
             </div>
           </Section>
@@ -166,10 +166,10 @@ export default function LandingPage() {
       <section className="border-y border-white/10 bg-white/[0.02]">
         <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {[
-            { num: "10+", label: "AI modellen" },
-            { num: "6", label: "Ingebouwde tools" },
+            { num: "10+", label: "AI models" },
+            { num: "6", label: "Built-in tools" },
             { num: "100%", label: "Privacy" },
-            { num: "€0", label: "Platform kosten" },
+            { num: "$0", label: "Platform cost" },
           ].map((s, i) => (
             <Section key={i} delay={i * 100}>
               <div>
@@ -188,10 +188,10 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <Section>
             <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-4">
-              Alles wat je nodig hebt
+              Everything you need
             </h2>
             <p className="text-gray-400 text-center mb-16 max-w-xl mx-auto">
-              Eén app, alle AI-modellen, alle tools. Geen beperkingen.
+              One app, all AI models, all tools. No limits.
             </p>
           </Section>
           <div className="grid md:grid-cols-3 gap-6">
@@ -213,21 +213,21 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <Section>
             <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-16">
-              In 3 stappen aan de slag
+              Get started in 3 steps
             </h2>
           </Section>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: "1", icon: "👤", title: "Maak een gratis account", desc: "Geen creditcard, geen gedoe. Open de app en vul je naam in." },
-              { step: "2", icon: "🔑", title: "Voeg je API key toe", desc: "Pak een key van OpenAI, Google of een andere provider. Duurt 2 minuten." },
-              { step: "3", icon: "🚀", title: "Start met chatten", desc: "Kies je model, stel je vraag, en laat AI het werk doen." },
+              { step: "1", icon: "👤", title: "Create a free account", desc: "No credit card, no hassle. Open the app and enter your name." },
+              { step: "2", icon: "🔑", title: "Add your API key", desc: "Grab a key from OpenAI, Google or another provider. Takes 2 minutes." },
+              { step: "3", icon: "🚀", title: "Start chatting", desc: "Pick your model, ask your question, and let AI do the work." },
             ].map((s, i) => (
               <Section key={i} delay={i * 150}>
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-3xl mx-auto mb-4">
                     {s.icon}
                   </div>
-                  <div className="text-xs text-indigo-400 font-bold uppercase tracking-widest mb-2">Stap {s.step}</div>
+                  <div className="text-xs text-indigo-400 font-bold uppercase tracking-widest mb-2">Step {s.step}</div>
                   <h3 className="text-lg font-bold mb-2">{s.title}</h3>
                   <p className="text-gray-400 text-sm">{s.desc}</p>
                 </div>
@@ -242,21 +242,41 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <Section>
             <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-4">
-              Bespaar tot 80%
+              Save up to 80%
             </h2>
             <p className="text-gray-400 text-center mb-16 max-w-xl mx-auto">
-              Waarom €20/maand betalen als het ook anders kan?
+              Why pay $20/month when there's a better way?
             </p>
           </Section>
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* ChatGPT Plus */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Free */}
             <Section>
+              <div className="p-8 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/[0.08] relative">
+                <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-emerald-500 text-xs font-bold text-black">
+                  New
+                </div>
+                <div className="text-sm text-emerald-400 font-semibold uppercase tracking-wider mb-4">AnyChat Free</div>
+                <div className="text-4xl font-extrabold mb-1">$0<span className="text-lg text-gray-500 font-normal"> forever</span></div>
+                <div className="text-sm text-gray-400 mb-1">No setup required</div>
+                <div className="text-xs text-emerald-400 mb-6">20 messages/day included</div>
+                <div className="space-y-3 text-sm">
+                  {["No account needed", "No API key needed", "Gemini Flash powered", "Upgrade anytime with your own key"].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-emerald-400 shrink-0" /> {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Section>
+
+            {/* ChatGPT Plus */}
+            <Section delay={80}>
               <div className="p-8 rounded-2xl border border-white/10 bg-white/[0.03]">
                 <div className="text-sm text-gray-500 font-semibold uppercase tracking-wider mb-4">ChatGPT Plus</div>
-                <div className="text-4xl font-extrabold mb-1">€20<span className="text-lg text-gray-500 font-normal">/mnd</span></div>
-                <div className="text-sm text-gray-500 mb-6">Vast bedrag</div>
+                <div className="text-4xl font-extrabold mb-1">$20<span className="text-lg text-gray-500 font-normal">/mo</span></div>
+                <div className="text-sm text-gray-500 mb-6">Fixed price</div>
                 <div className="space-y-3 text-sm">
-                  {["1 AI model (GPT-4)", "Beperkt aantal berichten", "Geen tools/plugins", "Data bij OpenAI"].map((item, i) => (
+                  {["1 AI model (GPT-4)", "Limited messages", "No tools/plugins", "Data stored by OpenAI"].map((item, i) => (
                     <div key={i} className="flex items-center gap-2 text-gray-400">
                       <X className="h-4 w-4 text-red-400 shrink-0" /> {item}
                     </div>
@@ -265,18 +285,18 @@ export default function LandingPage() {
               </div>
             </Section>
 
-            {/* AnyChat */}
-            <Section delay={100}>
+            {/* AnyChat Pro BYOK */}
+            <Section delay={120}>
               <div className="p-8 rounded-2xl border-2 border-indigo-500/50 bg-indigo-500/[0.08] relative">
                 <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-indigo-500 text-xs font-bold">
-                  Aanbevolen
+                  Recommended
                 </div>
-                <div className="text-sm text-indigo-400 font-semibold uppercase tracking-wider mb-4">AnyChat</div>
-                <div className="text-4xl font-extrabold mb-1">€0<span className="text-lg text-gray-500 font-normal"> platform</span></div>
-                <div className="text-sm text-gray-400 mb-1">+ ~€2-5/mnd gebruik</div>
-                <div className="text-xs text-indigo-400 mb-6">Betaal alleen wat je gebruikt</div>
+                <div className="text-sm text-indigo-400 font-semibold uppercase tracking-wider mb-4">AnyChat BYOK</div>
+                <div className="text-4xl font-extrabold mb-1">$0<span className="text-lg text-gray-500 font-normal"> platform</span></div>
+                <div className="text-sm text-gray-400 mb-1">+ ~$2-5/mo usage</div>
+                <div className="text-xs text-indigo-400 mb-6">Pay only for what you use</div>
                 <div className="space-y-3 text-sm">
-                  {["10+ AI modellen", "Onbeperkte berichten", "6 ingebouwde tools", "Data op je eigen apparaat"].map((item, i) => (
+                  {["10+ AI models", "Unlimited messages", "6 built-in tools", "Data stays on your device"].map((item, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-emerald-400 shrink-0" /> {item}
                     </div>
@@ -293,10 +313,10 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <Section>
             <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-4">
-              Alle modellen, één app
+              All models, one app
             </h2>
             <p className="text-gray-400 text-center mb-12">
-              Gebruik ze allemaal, of kies je favoriet.
+              Use them all, or pick your favorite.
             </p>
           </Section>
           <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
@@ -319,7 +339,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto">
           <Section>
             <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-12">
-              Veelgestelde vragen
+              Frequently asked questions
             </h2>
           </Section>
           <Section delay={100}>
@@ -340,10 +360,10 @@ export default function LandingPage() {
         <div className="relative z-10 text-center max-w-xl mx-auto">
           <Section>
             <h2 className="text-4xl md:text-5xl font-extrabold mb-6">
-              Klaar om te starten?
+              Ready to get started?
             </h2>
             <p className="text-gray-400 text-lg mb-10">
-              Geen account nodig. Geen creditcard. Start in 30 seconden.
+              No account needed. No credit card. Start in 30 seconds.
             </p>
             <Link
               href="/dashboard"
@@ -358,7 +378,7 @@ export default function LandingPage() {
       {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-white/10 py-8 px-4 text-center text-sm text-gray-500">
         <p>⚡ AnyChat — AI Command Centre</p>
-        <p className="mt-1">Open source · Privacy-first · Gratis</p>
+        <p className="mt-1">Open source · Privacy-first · Free</p>
       </footer>
     </div>
   )

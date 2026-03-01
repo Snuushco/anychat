@@ -33,7 +33,7 @@ export function CameraButton({ onCapture, disabled }: CameraCaptureProps) {
         videoRef.current.srcObject = stream
       }
     } catch {
-      alert('Camera niet beschikbaar')
+      alert('Camera not available')
       setIsOpen(false)
     }
   }, [])
@@ -68,7 +68,7 @@ export function CameraButton({ onCapture, disabled }: CameraCaptureProps) {
 
     onCapture({
       id: crypto.randomUUID(),
-      name: `foto_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.jpg`,
+      name: `photo_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}.jpg`,
       type: 'image/jpeg',
       size: Math.round(dataUrl.length * 0.75),
       dataUrl,

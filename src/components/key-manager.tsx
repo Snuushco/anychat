@@ -70,7 +70,7 @@ export function KeyManager({ onKeysChanged }: KeyManagerProps) {
       <div className="flex items-center gap-2 mb-4">
         <Shield className="h-5 w-5 text-green-500" />
         <p className="text-sm text-muted-foreground">
-          Je keys worden encrypted opgeslagen op je apparaat. Ze verlaten nooit je telefoon.
+          Your keys are encrypted on your device. They never leave your phone.
         </p>
       </div>
 
@@ -89,7 +89,7 @@ export function KeyManager({ onKeysChanged }: KeyManagerProps) {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={key.isValid ? "default" : "destructive"} className="text-xs">
-                  {key.isValid ? "Actief" : "Fout"}
+                  {key.isValid ? "Active" : "Error"}
                 </Badge>
                 <Button variant="ghost" size="icon" onClick={() => handleDeleteKey(key.provider)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -109,18 +109,20 @@ export function KeyManager({ onKeysChanged }: KeyManagerProps) {
             onClick={() => setWizardStep(0)}
           >
             <Plus className="mr-2 h-4 w-4" />
-            API Key Toevoegen
+            Add API Key
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           {wizardStep === 0 && (
             <>
               <DialogHeader>
-                <DialogTitle>Welke AI wil je toevoegen?</DialogTitle>
-                <DialogDescription>Kies een provider om een API key in te stellen.</DialogDescription>
+                <DialogTitle>Which AI would you like to add?</DialogTitle>
+                <DialogDescription>Choose a provider to set up an API key.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3">
-                {(Object.entries(PROVIDER_INFO) as [Provider, typeof PROVIDER_INFO[Provider]][]).map(([provider, info]) => (
+                {(Object.entries(PROVIDER_INFO) as [Provider, typeof PROVIDER_INFO[Provider]][])
+                  .filter(([provider]) => provider !== 'free')
+                  .map(([provider, info]) => (
                   <Button
                     key={provider}
                     variant="outline"
@@ -132,7 +134,7 @@ export function KeyManager({ onKeysChanged }: KeyManagerProps) {
                     <div>
                       <p className="font-medium">{info.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {existingProviders.has(provider) ? "Al toegevoegd" : "API key instellen"}
+                        {existingProviders.has(provider) ? "Already added" : "Set up API key"}
                       </p>
                     </div>
                   </Button>
@@ -147,39 +149,39 @@ export function KeyManager({ onKeysChanged }: KeyManagerProps) {
                 <DialogTitle>
                   {PROVIDER_INFO[addingProvider].icon} {PROVIDER_INFO[addingProvider].name} Key
                 </DialogTitle>
-                <DialogDescription>Volg deze stappen om je API key aan te maken.</DialogDescription>
+                <DialogDescription>Follow these steps to create your API key.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="rounded-lg bg-muted p-4 space-y-2 text-sm">
-                  <p><strong>Stap 1:</strong> Open de {PROVIDER_INFO[addingProvider].name} website</p>
+                  <p><strong>Step 1:</strong> Open the {PROVIDER_INFO[addingProvider].name} website</p>
                   <a
                     href={PROVIDER_INFO[addingProvider].keyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-primary underline"
                   >
-                    Open API Keys pagina <ExternalLink className="h-3 w-3" />
+                    Open API Keys page <ExternalLink className="h-3 w-3" />
                   </a>
-                  <p><strong>Stap 2:</strong> Klik op &quot;Create new key&quot; of &quot;Create API Key&quot;</p>
-                  <p><strong>Stap 3:</strong> Kopieer de key en plak hem hieronder</p>
+                  <p><strong>Step 2:</strong> Click &quot;Create new key&quot; or &quot;Create API Key&quot;</p>
+                  <p><strong>Step 3:</strong> Copy the key and paste it below</p>
                 </div>
 
                 <div className="space-y-2">
                   <Input
                     type="password"
-                    placeholder={`Plak je ${PROVIDER_INFO[addingProvider].name} API key...`}
+                    placeholder={`Paste your ${PROVIDER_INFO[addingProvider].name} API key...`}
                     value={newKey}
                     onChange={(e) => { setNewKey(e.target.value); setValidationResult(null) }}
                     className="font-mono"
                   />
                   {validationResult === true && (
                     <p className="text-sm text-green-600 flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4" /> Key is geldig! Veilig opgeslagen.
+                      <CheckCircle className="h-4 w-4" /> Key is valid! Safely stored.
                     </p>
                   )}
                   {validationResult === false && (
                     <p className="text-sm text-destructive flex items-center gap-1">
-                      <XCircle className="h-4 w-4" /> Key is ongeldig. Controleer en probeer opnieuw.
+                      <XCircle className="h-4 w-4" /> Key is invalid. Check and try again.
                     </p>
                   )}
                 </div>
@@ -190,14 +192,14 @@ export function KeyManager({ onKeysChanged }: KeyManagerProps) {
                   className="w-full"
                 >
                   {validating ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Valideren...</>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validating...</>
                   ) : (
-                    <><Key className="mr-2 h-4 w-4" /> Key Opslaan</>
+                    <><Key className="mr-2 h-4 w-4" /> Save Key</>
                   )}
                 </Button>
 
                 <p className="text-xs text-muted-foreground text-center">
-                  🔒 Je key wordt encrypted opgeslagen op dit apparaat
+                  🔒 Your key is encrypted and stored on this device
                 </p>
               </div>
             </>
