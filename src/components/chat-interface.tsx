@@ -6,9 +6,9 @@ import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Square, Copy, Check, DollarSign, Paperclip, Mic, Zap, MessageSquare, ChevronDown } from "lucide-react"
+import { Send, Square, Copy, Check, DollarSign, Zap, MessageSquare, ChevronDown, Volume2 } from "lucide-react"
 import { ModelSelector } from "./model-selector"
-import { streamChat, streamChatWithTools, type ChatMessage as AIChatMessage } from "@/lib/ai-client"
+import { streamChat, streamChatWithTools, type ChatMessage as AIChatMessage, type ContentPart } from "@/lib/ai-client"
 import { MODELS, calculateCost, getModelById, PROVIDER_INFO } from "@/lib/models"
 import { getEnabledTools, ALL_TOOLS, getToolById } from "@/lib/tools"
 import { ToolCallDisplay, type ToolCallInfo } from "./tool-call-display"
@@ -19,6 +19,12 @@ import {
 import { getAllKeys, saveApiKey, validateApiKey } from "@/lib/key-store"
 import { SUGGESTED_PROMPTS } from "@/lib/prompts"
 import { InlineKeySetup } from "./inline-key-setup"
+import { FileUpload, type FileAttachment } from "./file-upload"
+import { VoiceInput } from "./voice-input"
+import { CameraButton } from "./camera-capture"
+import { HtmlPreview, extractHtmlBlocks } from "./html-preview"
+import { getRecentMemories, buildMemoryContext } from "@/lib/memory"
+import { speak, getAutoSpeak, getSelectedVoice } from "@/lib/tts"
 
 interface ChatInterfaceProps {
   conversation: Conversation | null
@@ -40,6 +46,8 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [toolsExpanded, setToolsExpanded] = useState(false)
   const [activeToolCalls, setActiveToolCalls] = useState<ToolCallInfo[]>([])
   const [showKeyGate, setShowKeyGate] = useState<{ provider: import("@/lib/models").Provider; modelName: string; pendingMessage: string } | null>(null)
+  const [attachments, setAttachments] = useState<FileAttachment[]>([])
+  const [memoryContext, setMemoryContext] = useState<string>("")
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -48,6 +56,10 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     const saved = localStorage.getItem("anychat_default_model")
     if (saved) setSelectedModel(saved)
     loadKeys()
+    // Load memory context
+    getRecentMemories(20).then(memories => {
+      setMemoryContext(buildMemoryContext(memories))
+    }).catch(() => {})
   }, [])
 
   const loadMessages = useCallback(async () => {
@@ -79,7 +91,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
   async function handleSend(overrideInput?: string) {
     const text = overrideInput ?? input
-    if (!text.trim() || isStreaming) return
+    if ((!text.trim() && attachments.length === 0) || isStreaming) return
 
     const model = getModelById(selectedModel) || MODELS[0]
 
@@ -96,11 +108,21 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       onConversationCreated(conv)
     }
 
+    // Build content parts if there are attachments
+    const currentAttachments = [...attachments]
+    let displayContent = text.trim()
+
+    // Add file info to display
+    if (currentAttachments.length > 0) {
+      const fileNames = currentAttachments.map(a => `📎 ${a.name}`).join(', ')
+      displayContent = displayContent ? `${displayContent}\n${fileNames}` : fileNames
+    }
+
     const userMsg: Message = {
       id: crypto.randomUUID(),
       conversationId: conv.id,
       role: 'user',
-      content: text.trim(),
+      content: displayContent,
       model: model.id,
       createdAt: new Date().toISOString(),
     }
@@ -108,9 +130,15 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     await storeMessage(userMsg)
     setMessages(prev => [...prev, userMsg])
     setInput("")
+    setAttachments([])
 
     const allMsgs = [...messages, userMsg]
     const aiMessages: AIChatMessage[] = []
+
+    // Inject memory context
+    if (memoryContext) {
+      aiMessages.push({ role: 'system' as const, content: memoryContext })
+    }
 
     // Inject agent system prompt if present
     if (agentSystemPrompt) {
@@ -118,9 +146,30 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       aiMessages.push({ role: 'assistant' as const, content: "Begrepen, ik neem deze rol aan." })
     }
 
-    allMsgs.forEach(m => {
+    // Build the messages, with the last user message potentially multimodal
+    const prevMsgs = allMsgs.slice(0, -1)
+    prevMsgs.forEach(m => {
       aiMessages.push({ role: m.role, content: m.content })
     })
+
+    // Build multimodal content for the current message
+    if (currentAttachments.length > 0) {
+      const parts: ContentPart[] = []
+      if (text.trim()) parts.push({ type: 'text', text: text.trim() })
+
+      for (const att of currentAttachments) {
+        if (att.dataUrl && att.type.startsWith('image/')) {
+          // Extract base64 data from data URL
+          const base64 = att.dataUrl.split(',')[1]
+          parts.push({ type: 'image', mimeType: att.type, data: base64 })
+        } else if (att.textContent) {
+          parts.push({ type: 'text', text: `\n\n--- Bestand: ${att.name} ---\n${att.textContent}\n---` })
+        }
+      }
+      aiMessages.push({ role: 'user', content: parts })
+    } else {
+      aiMessages.push({ role: 'user', content: text.trim() })
+    }
 
     setIsStreaming(true)
     setStreamingContent("")
@@ -148,6 +197,11 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       setStreamingContent("")
       setIsStreaming(false)
       setSessionCost(prev => prev + cost)
+
+      // Auto-speak if enabled
+      if (getAutoSpeak() && fullContent) {
+        speak(fullContent, 'nl-NL', getSelectedVoice() || undefined)
+      }
 
       const updatedConv: Conversation = {
         ...conv!,
@@ -334,19 +388,32 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 )}
                 {msg.role === 'assistant' && (
-                  <div className="flex items-center gap-2 mt-2 pt-1 border-t border-border/30">
-                    <button
-                      onClick={() => copyMessage(msg.id, msg.content)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {copiedId === msg.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    </button>
-                    {msg.cost !== undefined && msg.cost > 0 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        €{msg.cost.toFixed(4)} · {msg.inputTokens}+{msg.outputTokens} tokens
-                      </span>
-                    )}
-                  </div>
+                  <>
+                    {/* HTML previews */}
+                    {extractHtmlBlocks(msg.content).map((block, i) => (
+                      <HtmlPreview key={i} html={block.html} />
+                    ))}
+                    <div className="flex items-center gap-2 mt-2 pt-1 border-t border-border/30">
+                      <button
+                        onClick={() => copyMessage(msg.id, msg.content)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {copiedId === msg.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </button>
+                      <button
+                        onClick={() => speak(msg.content, 'nl-NL', getSelectedVoice() || undefined)}
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                        title="Voorlezen"
+                      >
+                        <Volume2 className="h-3 w-3" />
+                      </button>
+                      {msg.cost !== undefined && msg.cost > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          €{msg.cost.toFixed(4)} · {msg.inputTokens}+{msg.outputTokens} tokens
+                        </span>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -401,11 +468,19 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       {/* Input */}
       <div className="border-t border-border/50 p-3 shrink-0 bg-background/80 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto">
-          <div className="flex items-end gap-2 bg-muted/30 border border-border/50 rounded-2xl px-3 py-2 focus-within:border-accent-primary/50 transition-colors duration-200">
-            {/* Attachment button */}
-            <button className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50 min-h-[36px] min-w-[36px] flex items-center justify-center">
-              <Paperclip className="h-4.5 w-4.5" />
-            </button>
+          <div className="relative flex items-end gap-2 bg-muted/30 border border-border/50 rounded-2xl px-3 py-2 focus-within:border-accent-primary/50 transition-colors duration-200">
+            {/* File upload (includes attachment button + previews) */}
+            <FileUpload
+              attachments={attachments}
+              onAttachmentsChange={setAttachments}
+              disabled={isStreaming}
+            />
+
+            {/* Camera */}
+            <CameraButton
+              onCapture={(att) => setAttachments(prev => [...prev, att])}
+              disabled={isStreaming}
+            />
 
             <Textarea
               ref={textareaRef}
@@ -417,10 +492,11 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
               rows={1}
             />
 
-            {/* Voice button */}
-            <button className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-muted/50 min-h-[36px] min-w-[36px] flex items-center justify-center">
-              <Mic className="h-4.5 w-4.5" />
-            </button>
+            {/* Voice input */}
+            <VoiceInput
+              onTranscript={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
+              disabled={isStreaming}
+            />
 
             {/* Send / Stop */}
             {isStreaming ? (
@@ -431,7 +507,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
               <Button
                 size="icon"
                 onClick={() => handleSend()}
-                disabled={!input.trim()}
+                disabled={!input.trim() && attachments.length === 0}
                 className="shrink-0 h-9 w-9 rounded-xl bg-accent-primary hover:bg-accent-primary/90 text-white disabled:opacity-30"
               >
                 <Send className="h-4 w-4" />

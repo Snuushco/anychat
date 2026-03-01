@@ -4,19 +4,68 @@ import { useState, useEffect } from "react"
 import { KeyManager } from "@/components/key-manager"
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { User, Key, Palette, Info, Wrench } from "lucide-react"
+import { User, Key, Palette, Info, Wrench, Brain, Volume2, Trash2 } from "lucide-react"
 import { ALL_TOOLS, getEnabledTools, setEnabledTools } from "@/lib/tools"
+import { getAllMemories, deleteMemory, clearAllMemories, type MemoryEntry } from "@/lib/memory"
+import { getAutoSpeak, setAutoSpeak, getSelectedVoice, setSelectedVoice, getVoices, isTTSSupported } from "@/lib/tts"
+
+const CATEGORY_COLORS: Record<string, string> = {
+  preference: 'bg-blue-500/20 text-blue-400',
+  fact: 'bg-green-500/20 text-green-400',
+  instruction: 'bg-orange-500/20 text-orange-400',
+  context: 'bg-purple-500/20 text-purple-400',
+}
 
 export default function SettingsPage() {
   const [userName, setUserName] = useState("")
   const [defaultModel, setDefaultModel] = useState("gpt-4.1")
   const [enabledToolIds, setEnabledToolIds] = useState<string[]>([])
+  const [memories, setMemories] = useState<MemoryEntry[]>([])
+  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(false)
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>("")
+  const [ttsSupported, setTtsSupported] = useState(false)
 
   useEffect(() => {
     setUserName(localStorage.getItem("anychat_user_name") || "")
     setDefaultModel(localStorage.getItem("anychat_default_model") || "gpt-4.1")
     setEnabledToolIds(getEnabledTools().map(t => t.id))
+    loadMemories()
+
+    // TTS
+    setTtsSupported(isTTSSupported())
+    setAutoSpeakEnabled(getAutoSpeak())
+    setSelectedVoiceName(getSelectedVoice() || "")
+
+    // Voices load async
+    const loadVoices = () => {
+      const v = getVoices()
+      if (v.length > 0) setVoices(v)
+    }
+    loadVoices()
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      speechSynthesis.onvoiceschanged = loadVoices
+    }
   }, [])
+
+  async function loadMemories() {
+    try {
+      const mems = await getAllMemories()
+      setMemories(mems.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+    } catch {}
+  }
+
+  async function handleDeleteMemory(id: string) {
+    await deleteMemory(id)
+    loadMemories()
+  }
+
+  async function handleClearMemories() {
+    if (confirm('Weet je zeker dat je alle herinneringen wilt wissen?')) {
+      await clearAllMemories()
+      setMemories([])
+    }
+  }
 
   function saveName(name: string) {
     setUserName(name)
@@ -118,6 +167,92 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Memory */}
+        <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-sm">Geheugen</h2>
+              <span className="text-xs text-muted-foreground">({memories.length})</span>
+            </div>
+            {memories.length > 0 && (
+              <button
+                onClick={handleClearMemories}
+                className="text-xs text-destructive hover:text-destructive/80 transition-colors"
+              >
+                Wis alles
+              </button>
+            )}
+          </div>
+          {memories.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nog geen herinneringen. De AI kan dingen onthouden via de &apos;remember&apos; tool in Agent modus.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {memories.map(mem => (
+                <div key={mem.id} className="flex items-start gap-2 p-2 rounded-lg bg-muted/30 border border-border/30">
+                  <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[mem.category] || 'bg-muted text-muted-foreground'}`}>
+                    {mem.category}
+                  </span>
+                  <p className="text-xs flex-1">{mem.content}</p>
+                  <button
+                    onClick={() => handleDeleteMemory(mem.id)}
+                    className="shrink-0 p-1 text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Voice / TTS */}
+        {ttsSupported && (
+          <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Volume2 className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-sm">Spraak</h2>
+            </div>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSpeakEnabled}
+                  onChange={(e) => {
+                    setAutoSpeakEnabled(e.target.checked)
+                    setAutoSpeak(e.target.checked)
+                  }}
+                  className="rounded border-border"
+                />
+                <div>
+                  <p className="text-sm font-medium">Automatisch voorlezen</p>
+                  <p className="text-[11px] text-muted-foreground">AI-antwoorden automatisch uitspreken</p>
+                </div>
+              </label>
+              {voices.length > 0 && (
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Stem</label>
+                  <select
+                    value={selectedVoiceName}
+                    onChange={(e) => {
+                      setSelectedVoiceName(e.target.value)
+                      setSelectedVoice(e.target.value)
+                    }}
+                    className="w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Automatisch (Nederlands)</option>
+                    {voices.map(v => (
+                      <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Appearance */}
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -140,7 +275,7 @@ export default function SettingsPage() {
             <h2 className="font-semibold text-sm">Over AnyChat</h2>
           </div>
           <p className="text-xs text-muted-foreground">
-            Versie 0.2.0 — AI Command Centre<br />
+            Versie 0.3.0 — AI Command Centre<br />
             Je API keys verlaten nooit je apparaat. Alles wordt lokaal versleuteld opgeslagen.
           </p>
         </section>

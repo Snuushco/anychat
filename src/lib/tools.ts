@@ -1,5 +1,7 @@
 // Tool system for AnyChat agent mode
 
+import { addMemory, searchMemories } from './memory'
+
 export interface ToolResult {
   success: boolean
   data: any
@@ -159,9 +161,127 @@ const urlFetchTool: Tool = {
   },
 }
 
+// ── Memory tools ──
+
+const rememberTool: Tool = {
+  id: 'remember',
+  name: 'Remember',
+  description: 'Save a fact, preference, or instruction about the user to persistent memory.',
+  icon: '🧠',
+  parameters: {
+    type: 'object',
+    properties: {
+      content: { type: 'string', description: 'What to remember' },
+      category: { type: 'string', enum: ['preference', 'fact', 'instruction', 'context'], description: 'Category of the memory' },
+    },
+    required: ['content', 'category'],
+  },
+  clientSide: true,
+  async execute({ content, category }: { content: string; category: string }) {
+    try {
+      const entry = await addMemory({ content, category: category as any, source: 'chat' })
+      return { success: true, data: entry, display: 'text', content: `Onthouden: "${content}" [${category}]` }
+    } catch (e: any) {
+      return { success: false, data: null, display: 'text', content: `Error: ${e.message}` }
+    }
+  },
+}
+
+const recallTool: Tool = {
+  id: 'recall',
+  name: 'Recall',
+  description: 'Search persistent memories about the user. Use keyword matching.',
+  icon: '💭',
+  parameters: {
+    type: 'object',
+    properties: { query: { type: 'string', description: 'Search query keywords' } },
+    required: ['query'],
+  },
+  clientSide: true,
+  async execute({ query }: { query: string }) {
+    try {
+      const results = await searchMemories(query)
+      if (results.length === 0) return { success: true, data: [], display: 'text', content: 'Geen herinneringen gevonden.' }
+      const content = results.map(r => `- [${r.category}] ${r.content}`).join('\n')
+      return { success: true, data: results, display: 'text', content }
+    } catch (e: any) {
+      return { success: false, data: null, display: 'text', content: `Error: ${e.message}` }
+    }
+  },
+}
+
+// ── Location tool ──
+
+const getLocationTool: Tool = {
+  id: 'get_location',
+  name: 'Get Location',
+  description: 'Get the user\'s current location (latitude, longitude, city, country). Requires user permission.',
+  icon: '📍',
+  parameters: { type: 'object', properties: {}, required: [] },
+  clientSide: true,
+  async execute() {
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
+      })
+      const { latitude, longitude } = pos.coords
+      // Reverse geocode
+      try {
+        const res = await fetch('/api/geocode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: latitude, lon: longitude }),
+        })
+        const geo = await res.json()
+        return {
+          success: true,
+          data: { latitude, longitude, ...geo },
+          display: 'text' as const,
+          content: `Locatie: ${geo.display_name || `${latitude}, ${longitude}`}\nStad: ${geo.city || 'onbekend'}\nLand: ${geo.country || 'onbekend'}\nCoördinaten: ${latitude}, ${longitude}`,
+        }
+      } catch {
+        return {
+          success: true,
+          data: { latitude, longitude },
+          display: 'text' as const,
+          content: `Coördinaten: ${latitude}, ${longitude}`,
+        }
+      }
+    } catch (e: any) {
+      return { success: false, data: null, display: 'text' as const, content: `Locatie niet beschikbaar: ${e.message}` }
+    }
+  },
+}
+
+// ── HTML/UI Preview tool ──
+
+const generateUiTool: Tool = {
+  id: 'generate_ui',
+  name: 'Generate UI',
+  description: 'Generate and preview an HTML/CSS/JS page. The HTML will be rendered in a sandboxed preview.',
+  icon: '🎨',
+  parameters: {
+    type: 'object',
+    properties: {
+      html: { type: 'string', description: 'Complete HTML document or snippet' },
+      description: { type: 'string', description: 'Short description of what was generated' },
+    },
+    required: ['html'],
+  },
+  clientSide: true,
+  async execute({ html, description }: { html: string; description?: string }) {
+    return {
+      success: true,
+      data: { html, description },
+      display: 'html' as const,
+      content: `\`\`\`html\n${html}\n\`\`\`${description ? `\n\n${description}` : ''}`,
+    }
+  },
+}
+
 // ── Registry ──
 
-export const ALL_TOOLS: Tool[] = [webSearchTool, urlFetchTool, javascriptTool, calculatorTool, datetimeTool]
+export const ALL_TOOLS: Tool[] = [webSearchTool, urlFetchTool, javascriptTool, calculatorTool, datetimeTool, rememberTool, recallTool, getLocationTool, generateUiTool]
 
 export function getEnabledTools(): Tool[] {
   if (typeof window === 'undefined') return ALL_TOOLS

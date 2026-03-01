@@ -4,11 +4,51 @@ import type { Provider } from './models';
 import type { Tool, ToolResult } from './tools';
 import { toolsToOpenAI, toolsToAnthropic, toolsToGemini, getToolById } from './tools';
 
+export type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; mimeType: string; data: string } // base64 without prefix
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string;
+  content: string | ContentPart[];
   tool_calls?: any[];
   tool_call_id?: string;
+}
+
+// Helper: get plain text from content
+export function getTextContent(content: string | ContentPart[]): string {
+  if (typeof content === 'string') return content;
+  return content.filter(p => p.type === 'text').map(p => (p as any).text).join('');
+}
+
+// Convert content parts to OpenAI format
+function contentToOpenAI(content: string | ContentPart[]): any {
+  if (typeof content === 'string') return content;
+  return content.map(p => {
+    if (p.type === 'text') return { type: 'text', text: p.text };
+    if (p.type === 'image') return { type: 'image_url', image_url: { url: `data:${p.mimeType};base64,${p.data}` } };
+    return p;
+  });
+}
+
+// Convert content parts to Anthropic format
+function contentToAnthropic(content: string | ContentPart[]): any {
+  if (typeof content === 'string') return content;
+  return content.map(p => {
+    if (p.type === 'text') return { type: 'text', text: p.text };
+    if (p.type === 'image') return { type: 'image', source: { type: 'base64', media_type: p.mimeType, data: p.data } };
+    return p;
+  });
+}
+
+// Convert content parts to Google format
+function contentToGoogle(content: string | ContentPart[]): any[] {
+  if (typeof content === 'string') return [{ text: content }];
+  return content.map(p => {
+    if (p.type === 'text') return { text: p.text };
+    if (p.type === 'image') return { inlineData: { mimeType: p.mimeType, data: p.data } };
+    return { text: '' };
+  });
 }
 
 export interface StreamCallbacks {
@@ -74,7 +114,7 @@ async function streamOpenAICompatible(
     },
     body: JSON.stringify({
       model,
-      messages,
+      messages: messages.map(m => ({ ...m, content: contentToOpenAI(m.content) })),
       stream: true,
       stream_options: { include_usage: true },
     }),
@@ -128,10 +168,10 @@ async function streamAnthropic(
   const body: Record<string, unknown> = {
     model,
     max_tokens: 4096,
-    messages: chatMsgs,
+    messages: chatMsgs.map(m => ({ ...m, content: contentToAnthropic(m.content) })),
     stream: true,
   };
-  if (systemMsg) body.system = systemMsg.content;
+  if (systemMsg) body.system = getTextContent(systemMsg.content);
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -190,13 +230,13 @@ async function streamGoogle(
     .filter(m => m.role !== 'system')
     .map(m => ({
       role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
+      parts: contentToGoogle(m.content),
     }));
 
   const systemInstruction = messages.find(m => m.role === 'system');
   const body: Record<string, unknown> = { contents };
   if (systemInstruction) {
-    body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+    body.systemInstruction = { parts: [{ text: getTextContent(systemInstruction.content) }] };
   }
 
   const res = await fetch(
@@ -357,7 +397,7 @@ async function openaiToolLoop(
       body: JSON.stringify({
         model,
         messages: currentMessages.map(m => {
-          const out: any = { role: m.role, content: m.content };
+          const out: any = { role: m.role, content: contentToOpenAI(m.content) };
           if (m.tool_calls) out.tool_calls = m.tool_calls;
           if (m.tool_call_id) out.tool_call_id = m.tool_call_id;
           return out;
@@ -407,14 +447,14 @@ async function anthropicToolLoop(
   const systemMsg = messages.find(m => m.role === 'system');
   const chatMsgs = messages.filter(m => m.role !== 'system');
   const anthropicMsgs: any[] = chatMsgs.map(m => ({
-    role: m.role === 'tool' ? 'user' : m.role, content: m.content,
+    role: m.role === 'tool' ? 'user' : m.role, content: contentToAnthropic(m.content),
   }));
 
   for (let round = 0; round < 5; round++) {
     const body: any = {
       model, max_tokens: 4096, messages: anthropicMsgs, tools: toolsToAnthropic(tools),
     };
-    if (systemMsg) body.system = systemMsg.content;
+    if (systemMsg) body.system = getTextContent(systemMsg.content);
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -463,11 +503,11 @@ async function googleToolLoop(
   const systemInstruction = messages.find(m => m.role === 'system');
   const contents: any[] = messages
     .filter(m => m.role !== 'system')
-    .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+    .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: contentToGoogle(m.content) }));
 
   for (let round = 0; round < 5; round++) {
     const body: any = { contents, tools: toolsToGemini(tools) };
-    if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+    if (systemInstruction) body.systemInstruction = { parts: [{ text: getTextContent(systemInstruction.content) }] };
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
