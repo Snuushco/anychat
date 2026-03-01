@@ -5,7 +5,7 @@ import { Plus, Trash2, CheckCircle2, Circle, Clock, Bell } from "lucide-react"
 import { getTasks, addTask, updateTask, deleteTask, getReminders, deleteReminder, type Task, type Reminder } from "@/lib/tasks"
 
 const PRIORITY_COLORS = { high: 'bg-red-500', medium: 'bg-yellow-500', low: 'bg-green-500' }
-const PRIORITY_LABELS = { high: 'Hoog', medium: 'Gemiddeld', low: 'Laag' }
+const PRIORITY_LABELS = { high: 'High', medium: 'Medium', low: 'Low' }
 
 type Filter = 'all' | 'open' | 'done'
 type SortBy = 'priority' | 'dueDate' | 'created'
@@ -65,7 +65,7 @@ export default function TasksPage() {
   return (
     <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-2xl mx-auto animate-page-in">
       <div className="animate-fade-in mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">✅ Taken</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">✅ Tasks</h1>
       </div>
 
       {/* Quick add */}
@@ -74,7 +74,7 @@ export default function TasksPage() {
           value={newTitle}
           onChange={e => setNewTitle(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          placeholder="Voeg taak toe..."
+          placeholder="Add task..."
           className="flex-1 rounded-xl border border-border/50 bg-card/50 px-4 py-2.5 text-sm focus:outline-none focus:border-accent-primary/50"
         />
         <select
@@ -94,7 +94,7 @@ export default function TasksPage() {
       {/* Filters */}
       <div className="flex items-center gap-2 mb-4 animate-fade-in" style={{ animationDelay: '100ms' }}>
         <div className="flex rounded-xl bg-muted/30 border border-border/50 p-0.5">
-          {([['all', 'Alles'], ['open', 'Open'], ['done', 'Klaar']] as const).map(([k, label]) => (
+          {([['all', 'All'], ['open', 'Open'], ['done', 'Done']] as const).map(([k, label]) => (
             <button
               key={k}
               onClick={() => setFilter(k)}
@@ -109,9 +109,9 @@ export default function TasksPage() {
           onChange={e => setSortBy(e.target.value as SortBy)}
           className="ml-auto text-xs rounded-lg border border-border/50 bg-card/50 px-2 py-1.5"
         >
-          <option value="priority">Prioriteit</option>
-          <option value="dueDate">Deadline</option>
-          <option value="created">Nieuwste</option>
+          <option value="priority">Priority</option>
+          <option value="dueDate">Due date</option>
+          <option value="created">Newest</option>
         </select>
       </div>
 
@@ -120,7 +120,7 @@ export default function TasksPage() {
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-4xl mb-3">📋</p>
-            <p className="text-sm">Geen taken. Vraag je AI om er een aan te maken!</p>
+            <p className="text-sm">No tasks yet. Ask your AI to create one!</p>
           </div>
         )}
         {filtered.map(task => (
@@ -141,7 +141,7 @@ export default function TasksPage() {
               {task.dueDate && (
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
                   <Clock className="h-3 w-3" />
-                  {new Date(task.dueDate).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(task.dueDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </p>
               )}
             </div>
@@ -155,10 +155,10 @@ export default function TasksPage() {
       {/* Reminders */}
       <div className="animate-fade-in" style={{ animationDelay: '200ms' }}>
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Bell className="h-4 w-4" /> Herinneringen
+          <Bell className="h-4 w-4" /> Reminders
         </h2>
         {upcoming.length === 0 && past.length === 0 && (
-          <p className="text-sm text-muted-foreground">Geen herinneringen. Vraag je AI: &ldquo;Herinner me over 30 minuten aan...&rdquo;</p>
+          <p className="text-sm text-muted-foreground">No reminders yet. Ask your AI: &ldquo;Remind me in 30 minutes to...&rdquo;</p>
         )}
         {upcoming.map(r => (
           <div key={r.id} className="flex items-center gap-3 rounded-xl border border-border/50 bg-card/50 px-4 py-3 mb-2">
@@ -166,7 +166,7 @@ export default function TasksPage() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium">{r.message}</p>
               <p className="text-[11px] text-muted-foreground">
-                {new Date(r.triggerAt).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {new Date(r.triggerAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
             <button onClick={() => handleDeleteReminder(r.id)} className="shrink-0 p-1.5 text-muted-foreground hover:text-destructive transition-colors">
@@ -179,7 +179,7 @@ export default function TasksPage() {
             <span className="text-lg">✅</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm">{r.message}</p>
-              <p className="text-[11px] text-muted-foreground">Afgevuurd</p>
+              <p className="text-[11px] text-muted-foreground">Triggered</p>
             </div>
             <button onClick={() => handleDeleteReminder(r.id)} className="shrink-0 p-1.5 text-muted-foreground hover:text-destructive transition-colors">
               <Trash2 className="h-4 w-4" />

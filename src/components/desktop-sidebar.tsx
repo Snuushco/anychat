@@ -7,10 +7,10 @@ import { Home, MessageSquare, CheckSquare, Bot, Settings, Puzzle } from "lucide-
 const NAV_ITEMS = [
   { href: "/dashboard", icon: Home, label: "Home" },
   { href: "/chat", icon: MessageSquare, label: "Chat" },
-  { href: "/tasks", icon: CheckSquare, label: "Taken" },
+  { href: "/tasks", icon: CheckSquare, label: "Tasks" },
   { href: "/agents", icon: Bot, label: "Agents" },
   { href: "/plugins", icon: Puzzle, label: "Plugins" },
-  { href: "/settings", icon: Settings, label: "Instellingen" },
+  { href: "/settings", icon: Settings, label: "Settings" },
 ]
 
 export function DesktopSidebar() {

@@ -35,7 +35,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
         <div className="p-2 space-y-1">
           {conversations.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
-              Nog geen gesprekken
+              No conversations yet
             </p>
           )}
           {conversations.map((conv) => (
@@ -46,7 +46,7 @@ export function Sidebar({ conversations, activeId, onSelect, onNew, onDelete, on
               `}
               onClick={() => onSelect(conv)}
             >
-              <span className="flex-1 truncate">{conv.title || 'Nieuw gesprek'}</span>
+              <span className="flex-1 truncate">{conv.title || 'New conversation'}</span>
               {conv.totalCost > 0 && (
                 <span className="text-[10px] text-muted-foreground">
                   €{conv.totalCost.toFixed(3)}

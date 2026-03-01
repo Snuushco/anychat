@@ -68,8 +68,8 @@ export async function deletePlugin(id: string): Promise<void> {
 export const BUILTIN_PLUGINS: Plugin[] = [
   {
     id: 'weather',
-    name: 'Weer',
-    description: 'Haal het huidige weer op voor een stad via wttr.in',
+    name: 'Weather',
+    description: 'Get the current weather for a city via wttr.in',
     icon: '🌤️',
     version: '1.0.0',
     author: 'AnyChat',
@@ -89,7 +89,7 @@ export const BUILTIN_PLUGINS: Plugin[] = [
   {
     id: 'qr_code',
     name: 'QR Code',
-    description: 'Genereer een QR code afbeelding van tekst of URL',
+    description: 'Generate a QR code image from text or URL',
     icon: '📱',
     version: '1.0.0',
     author: 'AnyChat',
@@ -108,8 +108,8 @@ export const BUILTIN_PLUGINS: Plugin[] = [
   },
   {
     id: 'translator',
-    name: 'Vertaler',
-    description: 'Vertaal tekst naar een andere taal (gebruikt het AI model zelf)',
+    name: 'Translator',
+    description: 'Translate text to another language (using the AI model itself)',
     icon: '🌍',
     version: '1.0.0',
     author: 'AnyChat',
@@ -158,7 +158,7 @@ export async function executePlugin(plugin: Plugin, params: Record<string, any>)
       // Format weather data nicely
       if (plugin.id === 'weather' && data.current_condition) {
         const c = data.current_condition[0]
-        const content = `🌡️ ${c.temp_C}°C (voelt als ${c.FeelsLikeC}°C)\n☁️ ${c.weatherDesc[0]?.value}\n💧 Luchtvochtigheid: ${c.humidity}%\n💨 Wind: ${c.windspeedKmph} km/h ${c.winddir16Point}`
+        const content = `🌡️ ${c.temp_C}°C (feels like ${c.FeelsLikeC}°C)\n☁️ ${c.weatherDesc[0]?.value}\n💧 Humidity: ${c.humidity}%\n💨 Wind: ${c.windspeedKmph} km/h ${c.winddir16Point}`
         return { success: true, data, display: 'text', content }
       }
 

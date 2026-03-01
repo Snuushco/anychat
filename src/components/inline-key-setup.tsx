@@ -38,11 +38,11 @@ export function InlineKeySetup({ provider, onSuccess, onSkip, compact = false, c
         setTimeout(() => onSuccess?.(), 1200)
       } else {
         setState("error")
-        setErrorMsg("Deze key werkt niet. Controleer of je hem goed hebt gekopieerd.")
+        setErrorMsg("This key doesn't work. Check if you copied it correctly.")
       }
     } catch {
       setState("error")
-      setErrorMsg("Kon de key niet controleren. Check je internetverbinding.")
+      setErrorMsg("Couldn't verify the key. Check your internet connection.")
     }
   }
 
@@ -52,9 +52,9 @@ export function InlineKeySetup({ provider, onSuccess, onSkip, compact = false, c
         <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce-once">
           <Check className="h-6 w-6 text-green-500" />
         </div>
-        <p className="text-sm font-semibold text-green-400">Je bent klaar! 🎉</p>
+        <p className="text-sm font-semibold text-green-400">You're all set! 🎉</p>
         <p className="text-xs text-muted-foreground">
-          {info.name} is ingesteld. Je kunt nu chatten.
+          {info.name} is configured. You can start chatting now.
         </p>
       </div>
     )
@@ -68,10 +68,10 @@ export function InlineKeySetup({ provider, onSuccess, onSkip, compact = false, c
         <div>
           <h3 className="font-semibold text-sm">
             {contextLabel
-              ? `${contextLabel} gebruikt ${info.name}`
-              : `${info.name} instellen`}
+              ? `${contextLabel} uses ${info.name}`
+              : `Set up ${info.name}`}
           </h3>
-          <p className="text-xs text-muted-foreground">Dit doe je in 30 seconden</p>
+          <p className="text-xs text-muted-foreground">This takes 30 seconds</p>
         </div>
       </div>
 
@@ -87,18 +87,18 @@ export function InlineKeySetup({ provider, onSuccess, onSkip, compact = false, c
                 rel="noopener noreferrer"
                 className="text-xs text-accent-primary hover:underline inline-flex items-center gap-1"
               >
-                Ga naar {info.name} <ExternalLink className="h-3 w-3" />
+                Go to {info.name} <ExternalLink className="h-3 w-3" />
               </a>
-              <p className="text-xs text-muted-foreground">Maak een gratis account aan als je er nog geen hebt</p>
+              <p className="text-xs text-muted-foreground">Create a free account if you don't have one yet</p>
             </div>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-xs font-bold text-accent-primary bg-accent-primary/10 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">2</span>
-            <p className="text-xs text-muted-foreground">Maak een nieuwe key aan en kopieer hem</p>
+            <p className="text-xs text-muted-foreground">Create a new key and copy it</p>
           </div>
           <div className="flex items-start gap-2">
             <span className="text-xs font-bold text-accent-primary bg-accent-primary/10 rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">3</span>
-            <p className="text-xs text-muted-foreground">Plak de key hieronder</p>
+            <p className="text-xs text-muted-foreground">Paste the key below</p>
           </div>
         </div>
       )}
@@ -110,7 +110,7 @@ export function InlineKeySetup({ provider, onSuccess, onSkip, compact = false, c
             type={showKey ? "text" : "password"}
             value={key}
             onChange={(e) => { setKey(e.target.value); setState("input"); setErrorMsg("") }}
-            placeholder={`Plak je ${info.name} key hier...`}
+            placeholder={`Paste your ${info.name} key here...`}
             className="pr-10 text-sm"
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
           />
@@ -130,7 +130,7 @@ export function InlineKeySetup({ provider, onSuccess, onSkip, compact = false, c
           {state === "validating" ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <>Opslaan <Check className="h-4 w-4 ml-1" /></>
+            <>Save <Check className="h-4 w-4 ml-1" /></>
           )}
         </Button>
       </div>
@@ -146,7 +146,7 @@ export function InlineKeySetup({ provider, onSuccess, onSkip, compact = false, c
       {/* Skip */}
       {onSkip && (
         <button onClick={onSkip} className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors self-center">
-          Later instellen →
+          Set up later →
         </button>
       )}
     </div>

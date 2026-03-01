@@ -33,11 +33,11 @@ export async function sendLocalNotification(title: string, body: string, data?: 
 export async function scheduleNotification(message: string, triggerAt: Date): Promise<void> {
   const ms = triggerAt.getTime() - Date.now()
   if (ms <= 0) {
-    await sendLocalNotification('⏰ Herinnering', message)
+    await sendLocalNotification('⏰ Reminder', message)
     return
   }
   if (ms > 2147483647) return
-  setTimeout(() => sendLocalNotification('⏰ Herinnering', message), ms)
+  setTimeout(() => sendLocalNotification('⏰ Reminder', message), ms)
 }
 
 // PWA install prompt

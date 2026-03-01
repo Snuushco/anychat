@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AnyChat — AI Command Centre",
-  description: "Jouw persoonlijke AI assistant die echt dingen doet. Chat met GPT-4, Claude, Gemini en meer. Gratis, veilig, op je telefoon.",
-  keywords: "AI assistant, ChatGPT alternatief, Claude, Gemini, BYOK, gratis AI chat",
+  description: "Your personal AI assistant that actually gets things done. Chat with GPT-4, Claude, Gemini and more. Free, secure, on your phone.",
+  keywords: "AI assistant, ChatGPT alternative, Claude, Gemini, BYOK, free AI chat",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -27,14 +27,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "AnyChat — AI Command Centre",
-    description: "Jouw persoonlijke AI assistant die echt dingen doet.",
+    description: "Your personal AI assistant that actually gets things done.",
     type: "website",
     url: "https://anychat-alpha.vercel.app",
   },
   twitter: {
     card: "summary_large_image",
     title: "AnyChat — AI Command Centre",
-    description: "Jouw persoonlijke AI assistant die echt dingen doet.",
+    description: "Your personal AI assistant that actually gets things done.",
   },
 };
 
@@ -55,7 +55,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="nl" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icon.svg" />

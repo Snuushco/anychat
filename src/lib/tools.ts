@@ -65,7 +65,7 @@ const datetimeTool: Tool = {
         ...(timezone ? { timeZone: timezone } : {}),
       }
       const now = new Date()
-      const formatted = new Intl.DateTimeFormat('nl-NL', opts).format(now)
+      const formatted = new Intl.DateTimeFormat('en-US', opts).format(now)
       const iso = now.toISOString()
       const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
       return { success: true, data: { formatted, iso, timezone: tz }, display: 'text', content: `${formatted}\nTimezone: ${tz}\nISO: ${iso}` }
@@ -182,7 +182,7 @@ const rememberTool: Tool = {
   async execute({ content, category }: { content: string; category: string }) {
     try {
       const entry = await addMemory({ content, category: category as any, source: 'chat' })
-      return { success: true, data: entry, display: 'text', content: `Onthouden: "${content}" [${category}]` }
+      return { success: true, data: entry, display: 'text', content: `Remembered: "${content}" [${category}]` }
     } catch (e: any) {
       return { success: false, data: null, display: 'text', content: `Error: ${e.message}` }
     }
@@ -203,7 +203,7 @@ const recallTool: Tool = {
   async execute({ query }: { query: string }) {
     try {
       const results = await searchMemories(query)
-      if (results.length === 0) return { success: true, data: [], display: 'text', content: 'Geen herinneringen gevonden.' }
+      if (results.length === 0) return { success: true, data: [], display: 'text', content: 'No memories found.' }
       const content = results.map(r => `- [${r.category}] ${r.content}`).join('\n')
       return { success: true, data: results, display: 'text', content }
     } catch (e: any) {
@@ -239,18 +239,18 @@ const getLocationTool: Tool = {
           success: true,
           data: { latitude, longitude, ...geo },
           display: 'text' as const,
-          content: `Locatie: ${geo.display_name || `${latitude}, ${longitude}`}\nStad: ${geo.city || 'onbekend'}\nLand: ${geo.country || 'onbekend'}\nCoördinaten: ${latitude}, ${longitude}`,
+          content: `Location: ${geo.display_name || `${latitude}, ${longitude}`}\nCity: ${geo.city || 'unknown'}\nCountry: ${geo.country || 'unknown'}\nCoordinates: ${latitude}, ${longitude}`,
         }
       } catch {
         return {
           success: true,
           data: { latitude, longitude },
           display: 'text' as const,
-          content: `Coördinaten: ${latitude}, ${longitude}`,
+          content: `Coordinates: ${latitude}, ${longitude}`,
         }
       }
     } catch (e: any) {
-      return { success: false, data: null, display: 'text' as const, content: `Locatie niet beschikbaar: ${e.message}` }
+      return { success: false, data: null, display: 'text' as const, content: `Location not available: ${e.message}` }
     }
   },
 }
@@ -299,10 +299,10 @@ const setReminderTool: Tool = {
   clientSide: true,
   async execute({ message, time }: { message: string; time: string }) {
     const triggerAt = parseNaturalTime(time)
-    if (!triggerAt) return { success: false, data: null, display: 'text', content: `Kon tijd niet parsen: "${time}"` }
+    if (!triggerAt) return { success: false, data: null, display: 'text', content: `Could not parse time: "${time}"` }
     const reminder = await addReminder({ message, triggerAt: triggerAt.toISOString() })
-    const formatted = triggerAt.toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' })
-    return { success: true, data: reminder, display: 'text', content: `⏰ Herinnering gezet voor ${formatted}: "${message}"` }
+    const formatted = triggerAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    return { success: true, data: reminder, display: 'text', content: `⏰ Reminder set for ${formatted}: "${message}"` }
   },
 }
 
@@ -329,7 +329,7 @@ const addTaskTool: Tool = {
       if (parsed) dueDateISO = parsed.toISOString()
     }
     const task = await addTask({ title, description, priority: (priority as any) || 'medium', dueDate: dueDateISO })
-    return { success: true, data: task, display: 'text', content: `✅ Taak toegevoegd: "${title}" [${task.priority}]` }
+    return { success: true, data: task, display: 'text', content: `✅ Task added: "${title}" [${task.priority}]` }
   },
 }
 
@@ -347,11 +347,11 @@ const listTasksTool: Tool = {
   async execute({ completed }: { completed?: boolean }) {
     let tasks = await getTasks()
     if (completed !== undefined) tasks = tasks.filter(t => t.completed === completed)
-    if (tasks.length === 0) return { success: true, data: [], display: 'text', content: 'Geen taken gevonden.' }
+    if (tasks.length === 0) return { success: true, data: [], display: 'text', content: 'No tasks found.' }
     const lines = tasks.map(t => {
       const status = t.completed ? '✅' : '⬜'
       const prio = t.priority === 'high' ? '🔴' : t.priority === 'medium' ? '🟡' : '🟢'
-      return `${status} ${prio} ${t.title}${t.dueDate ? ` (deadline: ${new Date(t.dueDate).toLocaleDateString('nl-NL')})` : ''}`
+      return `${status} ${prio} ${t.title}${t.dueDate ? ` (due: ${new Date(t.dueDate).toLocaleDateString('en-US')})` : ''}`
     })
     return { success: true, data: tasks, display: 'text', content: lines.join('\n') }
   },
@@ -379,9 +379,9 @@ const completeTaskTool: Tool = {
       const lower = title.toLowerCase()
       task = tasks.find(t => t.title.toLowerCase().includes(lower))
     }
-    if (!task) return { success: false, data: null, display: 'text', content: 'Taak niet gevonden.' }
+    if (!task) return { success: false, data: null, display: 'text', content: 'Task not found.' }
     await updateTask({ ...task, completed: true, completedAt: new Date().toISOString() })
-    return { success: true, data: task, display: 'text', content: `✅ Taak afgerond: "${task.title}"` }
+    return { success: true, data: task, display: 'text', content: `✅ Task completed: "${task.title}"` }
   },
 }
 

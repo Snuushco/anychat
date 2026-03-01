@@ -51,7 +51,7 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders }: M
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Kies een AI model</DialogTitle>
+          <DialogTitle>Choose an AI model</DialogTitle>
         </DialogHeader>
         <div className="grid gap-1">
           {groupedModels.map(({ provider, models }) => (
@@ -62,7 +62,7 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders }: M
                   {PROVIDER_INFO[provider].name}
                 </span>
                 {!availableProviders.has(provider) && (
-                  <Badge variant="outline" className="text-[10px] ml-auto">Key nodig</Badge>
+                  <Badge variant="outline" className="text-[10px] ml-auto">Key required</Badge>
                 )}
               </div>
               {models.map((model) => {

@@ -11,15 +11,15 @@ export function getVoices(): SpeechSynthesisVoice[] {
   return speechSynthesis.getVoices()
 }
 
-export function getDutchVoice(): SpeechSynthesisVoice | null {
+export function getEnglishVoice(): SpeechSynthesisVoice | null {
   const voices = getVoices()
-  // Prefer Dutch female voice
-  const dutchFemale = voices.find(v => v.lang.startsWith('nl') && v.name.toLowerCase().includes('female'))
-  const dutch = voices.find(v => v.lang.startsWith('nl'))
-  return dutchFemale || dutch || null
+  // Prefer English female voice
+  const englishFemale = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'))
+  const english = voices.find(v => v.lang.startsWith('en'))
+  return englishFemale || english || null
 }
 
-export function speak(text: string, lang = 'nl-NL', voiceName?: string): void {
+export function speak(text: string, lang = 'en-US', voiceName?: string): void {
   if (!isTTSSupported()) return
   stop()
 
@@ -32,8 +32,8 @@ export function speak(text: string, lang = 'nl-NL', voiceName?: string): void {
     const voice = getVoices().find(v => v.name === voiceName)
     if (voice) utterance.voice = voice
   } else {
-    const dutch = getDutchVoice()
-    if (dutch) utterance.voice = dutch
+    const english = getEnglishVoice()
+    if (english) utterance.voice = english
   }
 
   currentUtterance = utterance

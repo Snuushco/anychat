@@ -28,7 +28,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   if (!agent) {
     return (
       <div className="min-h-full flex items-center justify-center">
-        <p className="text-muted-foreground">Agent niet gevonden</p>
+        <p className="text-muted-foreground">Agent not found</p>
       </div>
     )
   }
@@ -50,7 +50,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           onClick={() => router.push("/agents")}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
-          <ArrowLeft className="h-4 w-4" /> Terug
+          <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="max-w-2xl mx-auto text-center">
           <span className="text-6xl block mb-4">{agent.icon}</span>
@@ -64,7 +64,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         {agent.examples.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Wat kan ik voor je doen?
+              What can I do for you?
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {agent.examples.map((example) => (
@@ -85,7 +85,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         {hasKey === false ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground text-center">
-              Om {agent.name} te gebruiken heb je een AI key nodig. Dit stel je in 30 seconden in:
+              To use {agent.name} you need an AI key. Set it up in 30 seconds:
             </p>
             <InlineKeySetup
               provider={suggestedProvider}
@@ -99,7 +99,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             className="w-full h-14 text-base bg-accent-primary hover:bg-accent-primary/90 text-white rounded-2xl animate-subtle-pulse"
           >
             <MessageSquare className="h-5 w-5 mr-2" />
-            Start gesprek
+            Start conversation
           </Button>
         ) : null}
       </div>

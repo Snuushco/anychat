@@ -49,7 +49,7 @@ function openDB(): Promise<IDBDatabase> {
 export async function createConversation(model: string): Promise<Conversation> {
   const conv: Conversation = {
     id: crypto.randomUUID(),
-    title: 'Nieuw gesprek',
+    title: 'New conversation',
     model,
     messageCount: 0,
     totalCost: 0,

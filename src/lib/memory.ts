@@ -89,5 +89,5 @@ export async function getRecentMemories(limit = 20): Promise<MemoryEntry[]> {
 export function buildMemoryContext(memories: MemoryEntry[]): string {
   if (memories.length === 0) return ''
   const lines = memories.map(m => `- [${m.category}] ${m.content}`)
-  return `Je hebt de volgende informatie over de gebruiker:\n${lines.join('\n')}\n\nGebruik deze context waar relevant. Je kunt nieuwe dingen onthouden met de 'remember' tool.`
+  return `You have the following information about the user:\n${lines.join('\n')}\n\nUse this context whenever relevant. You can remember new things with the 'remember' tool.`
 }

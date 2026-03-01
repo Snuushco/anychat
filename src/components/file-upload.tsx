@@ -42,7 +42,7 @@ export function FileUpload({ attachments, onAttachmentsChange, disabled }: FileU
 
     for (const file of Array.from(files)) {
       if (file.size > MAX_FILE_SIZE) {
-        alert(`${file.name} is te groot (max 10MB)`)
+        alert(`${file.name} is too large (max 10MB)`)
         continue
       }
 
@@ -60,7 +60,7 @@ export function FileUpload({ attachments, onAttachmentsChange, disabled }: FileU
       } else if (file.type.startsWith('text/') || file.type === 'application/json') {
         attachment.textContent = await readAsText(file)
       } else if (file.type === 'application/pdf') {
-        attachment.textContent = `[PDF bestand: ${file.name} (${formatSize(file.size)})]`
+        attachment.textContent = `[PDF file: ${file.name} (${formatSize(file.size)})]`
       }
 
       newAttachments.push(attachment)

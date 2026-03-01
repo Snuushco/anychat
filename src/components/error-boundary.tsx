@@ -34,9 +34,9 @@ export class ErrorBoundary extends React.Component<
               <AlertTriangle className="h-6 w-6 text-destructive" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Er ging iets mis</h2>
+              <h2 className="text-lg font-semibold">Something went wrong</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Er is een onverwachte fout opgetreden. Probeer de pagina opnieuw te laden.
+                An unexpected error occurred. Please reload the page.
               </p>
             </div>
             <div className="flex flex-col gap-2">
@@ -45,14 +45,14 @@ export class ErrorBoundary extends React.Component<
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-accent-primary text-white text-sm font-medium hover:bg-accent-primary/90 transition-colors"
               >
                 <RefreshCw className="h-4 w-4" />
-                Probeer opnieuw
+                Try again
               </button>
               <a
                 href="mailto:snuushco@gmail.com?subject=AnyChat%20Bug%20Report"
                 className="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-xl border border-border/50 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <MessageCircle className="h-4 w-4" />
-                Meld een probleem
+                Report an issue
               </a>
             </div>
           </div>

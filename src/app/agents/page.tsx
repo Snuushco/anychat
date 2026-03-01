@@ -21,7 +21,7 @@ export default function AgentsPage() {
           🤖 Agents
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Kies een specialist of maak je eigen agent
+          Pick a specialist or create your own agent
         </p>
       </div>
 
@@ -46,7 +46,7 @@ export default function AgentsPage() {
               </div>
               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{agent.description}</p>
               {hasKeys === false && agent.id !== "custom" && (
-                <p className="text-[10px] text-accent-primary mt-1">Stel eerst een key in →</p>
+                <p className="text-[10px] text-accent-primary mt-1">Set up a key first →</p>
               )}
             </div>
           </button>

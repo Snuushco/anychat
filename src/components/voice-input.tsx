@@ -23,7 +23,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
     if (!SpeechRecognition) return
 
     const recognition = new SpeechRecognition()
-    recognition.lang = 'nl-NL'
+    recognition.lang = 'en-US'
     recognition.interimResults = true
     recognition.continuous = false
     recognition.maxAlternatives = 1
@@ -68,7 +68,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           ? 'text-red-500 bg-red-500/10 animate-pulse'
           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
       }`}
-      title={isListening ? 'Stop luisteren' : 'Spraakherkenning'}
+      title={isListening ? 'Stop listening' : 'Voice input'}
     >
       {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
     </button>

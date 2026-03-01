@@ -9,20 +9,20 @@ import { getAllKeys } from "@/lib/key-store"
 import { Onboarding } from "@/components/onboarding"
 
 const QUICK_ACTIONS = [
-  { icon: MessageSquare, label: "Chat", desc: "Open gesprek", href: "/chat", color: "from-blue-500/20 to-blue-600/5 border-blue-500/20", iconColor: "text-blue-400" },
-  { icon: Search, label: "Research", desc: "Zoek & analyseer", href: "/chat?agent=researcher", color: "from-emerald-500/20 to-emerald-600/5 border-emerald-500/20", iconColor: "text-emerald-400" },
-  { icon: PenLine, label: "Schrijven", desc: "Tekst, email, content", href: "/chat?agent=email-assistant", color: "from-amber-500/20 to-amber-600/5 border-amber-500/20", iconColor: "text-amber-400" },
-  { icon: Code, label: "Code", desc: "Programmeren & debug", href: "/chat?prompt=code", color: "from-violet-500/20 to-violet-600/5 border-violet-500/20", iconColor: "text-violet-400" },
-  { icon: BarChart3, label: "Analyseer", desc: "Data & documenten", href: "/chat?prompt=analysis", color: "from-rose-500/20 to-rose-600/5 border-rose-500/20", iconColor: "text-rose-400" },
-  { icon: Palette, label: "Creatief", desc: "Brainstorm & ideeën", href: "/chat?prompt=creative", color: "from-pink-500/20 to-pink-600/5 border-pink-500/20", iconColor: "text-pink-400" },
+  { icon: MessageSquare, label: "Chat", desc: "Open conversation", href: "/chat", color: "from-blue-500/20 to-blue-600/5 border-blue-500/20", iconColor: "text-blue-400" },
+  { icon: Search, label: "Research", desc: "Search & analyze", href: "/chat?agent=researcher", color: "from-emerald-500/20 to-emerald-600/5 border-emerald-500/20", iconColor: "text-emerald-400" },
+  { icon: PenLine, label: "Write", desc: "Text, email, content", href: "/chat?agent=email-assistant", color: "from-amber-500/20 to-amber-600/5 border-amber-500/20", iconColor: "text-amber-400" },
+  { icon: Code, label: "Code", desc: "Program & debug", href: "/chat?prompt=code", color: "from-violet-500/20 to-violet-600/5 border-violet-500/20", iconColor: "text-violet-400" },
+  { icon: BarChart3, label: "Analyze", desc: "Data & documents", href: "/chat?prompt=analysis", color: "from-rose-500/20 to-rose-600/5 border-rose-500/20", iconColor: "text-rose-400" },
+  { icon: Palette, label: "Creative", desc: "Brainstorm & ideas", href: "/chat?prompt=creative", color: "from-pink-500/20 to-pink-600/5 border-pink-500/20", iconColor: "text-pink-400" },
 ]
 
 function getGreeting(): string {
   const hour = new Date().getHours()
-  if (hour < 6) return "Goedenacht"
-  if (hour < 12) return "Goedemorgen"
-  if (hour < 18) return "Goedemiddag"
-  return "Goedenavond"
+  if (hour < 6) return "Good night"
+  if (hour < 12) return "Good morning"
+  if (hour < 18) return "Good afternoon"
+  return "Good evening"
 }
 
 export default function DashboardPage() {
@@ -65,8 +65,8 @@ export default function DashboardPage() {
         >
           <Settings className="h-5 w-5 text-amber-400" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-300">Voeg je eerste AI key toe</p>
-            <p className="text-xs text-muted-foreground">Het duurt maar 30 seconden →</p>
+            <p className="text-sm font-medium text-amber-300">Add your first AI key</p>
+            <p className="text-xs text-muted-foreground">It only takes 30 seconds →</p>
           </div>
         </button>
       )}
@@ -77,7 +77,7 @@ export default function DashboardPage() {
           {getGreeting()}{userName ? `, ${userName}` : ""} 👋
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Wat wil je vandaag doen?
+          What would you like to do today?
         </p>
       </div>
 
@@ -112,11 +112,11 @@ export default function DashboardPage() {
       <div className="animate-fade-in" style={{ animationDelay: "350ms" }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Recente gesprekken
+            Recent conversations
           </h2>
           {conversations.length > 0 && (
             <Link href="/chat" className="text-xs text-accent-primary hover:underline">
-              Alles bekijken
+              View all
             </Link>
           )}
         </div>
@@ -127,8 +127,8 @@ export default function DashboardPage() {
           </div>
         ) : conversations.length === 0 ? (
           <div className="text-center py-8 rounded-2xl border border-dashed border-border/50">
-            <p className="text-muted-foreground text-sm">Nog geen gesprekken</p>
-            <p className="text-xs text-muted-foreground/70 mt-1">Start een chat hierboven</p>
+            <p className="text-muted-foreground text-sm">No conversations yet</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Start a chat above</p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -140,9 +140,9 @@ export default function DashboardPage() {
               >
                 <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{conv.title || "Nieuw gesprek"}</p>
+                  <p className="text-sm font-medium truncate">{conv.title || "New conversation"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(conv.updatedAt).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}
+                    {new Date(conv.updatedAt).toLocaleDateString("en-US", { day: "numeric", month: "short" })}
                     {conv.totalCost > 0 && ` · €${conv.totalCost.toFixed(3)}`}
                   </p>
                 </div>

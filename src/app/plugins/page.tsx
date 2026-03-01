@@ -100,15 +100,15 @@ export default function PluginsPage() {
     <div className="min-h-full px-4 py-6 md:px-8 md:py-10 max-w-2xl mx-auto animate-page-in">
       <div className="animate-fade-in mb-6">
         <Link href="/settings" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-2">
-          <ArrowLeft className="h-3 w-3" /> Instellingen
+          <ArrowLeft className="h-3 w-3" /> Settings
         </Link>
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">🧩 Plugins</h1>
       </div>
 
       {/* Installed */}
       <section className="mb-8 animate-fade-in" style={{ animationDelay: '50ms' }}>
-        <h2 className="font-semibold text-sm mb-3 text-muted-foreground uppercase tracking-wide">Geïnstalleerd</h2>
-        {installed.length === 0 && <p className="text-sm text-muted-foreground">Nog geen plugins geïnstalleerd.</p>}
+        <h2 className="font-semibold text-sm mb-3 text-muted-foreground uppercase tracking-wide">Installed</h2>
+        {installed.length === 0 && <p className="text-sm text-muted-foreground">No plugins installed yet.</p>}
         <div className="space-y-2">
           {installed.map(p => (
             <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border/50 bg-card/50 px-4 py-3">
@@ -121,7 +121,7 @@ export default function PluginsPage() {
               <button
                 onClick={() => handleToggle(p)}
                 className={`p-2 rounded-lg transition-colors ${p.enabled ? 'text-green-500 bg-green-500/10' : 'text-muted-foreground bg-muted/30'}`}
-                title={p.enabled ? 'Uitschakelen' : 'Inschakelen'}
+                title={p.enabled ? 'Disable' : 'Enable'}
               >
                 <Power className="h-4 w-4" />
               </button>
@@ -137,7 +137,7 @@ export default function PluginsPage() {
 
       {/* Available */}
       <section className="mb-8 animate-fade-in" style={{ animationDelay: '100ms' }}>
-        <h2 className="font-semibold text-sm mb-3 text-muted-foreground uppercase tracking-wide">Beschikbaar</h2>
+        <h2 className="font-semibold text-sm mb-3 text-muted-foreground uppercase tracking-wide">Available</h2>
         <div className="space-y-2">
           {available.map(bp => (
             <div key={bp.id} className="flex items-center gap-3 rounded-xl border border-border/50 bg-card/50 px-4 py-3">
@@ -150,7 +150,7 @@ export default function PluginsPage() {
                 onClick={() => handleInstall(bp)}
                 className="px-3 py-1.5 rounded-lg bg-accent-primary/20 text-accent-primary text-xs font-medium hover:bg-accent-primary/30 transition-colors"
               >
-                Installeren
+                Install
               </button>
             </div>
           ))}
@@ -162,8 +162,8 @@ export default function PluginsPage() {
           >
             <span className="text-2xl">✨</span>
             <div className="flex-1 text-left">
-              <p className="text-sm font-medium">Maak je eigen plugin</p>
-              <p className="text-[11px] text-muted-foreground">API call of JavaScript functie</p>
+              <p className="text-sm font-medium">Create your own plugin</p>
+              <p className="text-[11px] text-muted-foreground">API call or JavaScript function</p>
             </div>
             {showCreator ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </button>
@@ -173,13 +173,13 @@ export default function PluginsPage() {
       {/* Plugin Creator */}
       {showCreator && (
         <section className="rounded-2xl border border-border/50 bg-card/50 p-5 animate-fade-in">
-          <h2 className="font-semibold text-sm mb-4">✨ Nieuwe Plugin</h2>
+          <h2 className="font-semibold text-sm mb-4">✨ New Plugin</h2>
           <div className="space-y-3">
             <div className="flex gap-2">
               <input value={cIcon} onChange={e => setCIcon(e.target.value)} className="w-16 rounded-lg border border-border/50 bg-background px-3 py-2 text-center text-xl" />
-              <input value={cName} onChange={e => setCName(e.target.value)} placeholder="Naam" className="flex-1 rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
+              <input value={cName} onChange={e => setCName(e.target.value)} placeholder="Name" className="flex-1 rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
             </div>
-            <input value={cDesc} onChange={e => setCDesc(e.target.value)} placeholder="Beschrijving" className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
+            <input value={cDesc} onChange={e => setCDesc(e.target.value)} placeholder="Description" className="w-full rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
 
             <div className="flex gap-2">
               <select value={cType} onChange={e => setCType(e.target.value as any)} className="rounded-lg border border-border/50 bg-background px-3 py-2 text-sm">
@@ -201,8 +201,8 @@ export default function PluginsPage() {
             )}
 
             <div className="flex gap-2">
-              <input value={cToolName} onChange={e => setCToolName(e.target.value)} placeholder="Tool naam (voor AI)" className="flex-1 rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
-              <input value={cToolDesc} onChange={e => setCToolDesc(e.target.value)} placeholder="Tool beschrijving" className="flex-1 rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
+              <input value={cToolName} onChange={e => setCToolName(e.target.value)} placeholder="Tool name (for AI)" className="flex-1 rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
+              <input value={cToolDesc} onChange={e => setCToolDesc(e.target.value)} placeholder="Tool description" className="flex-1 rounded-lg border border-border/50 bg-background px-3 py-2 text-sm" />
             </div>
 
             {/* Parameters */}
@@ -210,13 +210,13 @@ export default function PluginsPage() {
               <p className="text-xs text-muted-foreground mb-2">Parameters:</p>
               {cParams.map((p, i) => (
                 <div key={i} className="flex gap-2 mb-1">
-                  <input value={p.name} onChange={e => { const n = [...cParams]; n[i].name = e.target.value; setCParams(n) }} placeholder="naam" className="w-28 rounded-lg border border-border/50 bg-background px-2 py-1.5 text-xs" />
+                  <input value={p.name} onChange={e => { const n = [...cParams]; n[i].name = e.target.value; setCParams(n) }} placeholder="name" className="w-28 rounded-lg border border-border/50 bg-background px-2 py-1.5 text-xs" />
                   <select value={p.type} onChange={e => { const n = [...cParams]; n[i].type = e.target.value; setCParams(n) }} className="w-24 rounded-lg border border-border/50 bg-background px-2 py-1.5 text-xs">
                     <option>string</option>
                     <option>number</option>
                     <option>boolean</option>
                   </select>
-                  <input value={p.desc} onChange={e => { const n = [...cParams]; n[i].desc = e.target.value; setCParams(n) }} placeholder="beschrijving" className="flex-1 rounded-lg border border-border/50 bg-background px-2 py-1.5 text-xs" />
+                  <input value={p.desc} onChange={e => { const n = [...cParams]; n[i].desc = e.target.value; setCParams(n) }} placeholder="description" className="flex-1 rounded-lg border border-border/50 bg-background px-2 py-1.5 text-xs" />
                 </div>
               ))}
               <button onClick={() => setCParams([...cParams, { name: '', type: 'string', desc: '' }])} className="text-xs text-accent-primary hover:underline mt-1">+ Parameter</button>
@@ -231,7 +231,7 @@ export default function PluginsPage() {
                 <TestTube className="h-3.5 w-3.5" /> Test
               </button>
               <button onClick={handleSaveCustom} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent-primary text-white text-sm hover:bg-accent-primary/90 transition-colors">
-                <Save className="h-3.5 w-3.5" /> Opslaan
+                <Save className="h-3.5 w-3.5" /> Save
               </button>
             </div>
           </div>
