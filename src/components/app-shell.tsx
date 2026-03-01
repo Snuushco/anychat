@@ -8,16 +8,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="h-dvh flex overflow-hidden">
       {/* Desktop sidebar */}
       <DesktopSidebar />
-      
-      {/* Main content — use env(safe-area-inset-bottom) + nav height */}
-      <div className="flex-1 min-w-0 flex flex-col h-dvh">
-        <div className="flex-1 min-h-0">
+
+      {/* Main content area */}
+      <div className="flex-1 min-w-0 h-dvh flex flex-col">
+        {/* Content fills available space minus nav */}
+        <div className="flex-1 min-h-0 overflow-hidden">
           {children}
         </div>
-        {/* Spacer matching bottom nav height on mobile */}
-        <div className="shrink-0 h-16 md:h-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
+        {/* Invisible spacer that pushes content up, matching bottom nav */}
+        <div className="h-16 shrink-0 md:hidden" />
       </div>
-      
+
       <BottomNav />
     </div>
   )
