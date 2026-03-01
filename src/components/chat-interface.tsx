@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -25,7 +27,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState("")
-  const [selectedModel, setSelectedModel] = useState("gpt-4o")
+  const [selectedModel, setSelectedModel] = useState("gpt-4.1")
   const [availableProviders, setAvailableProviders] = useState<Set<string>>(new Set())
   const [sessionCost, setSessionCost] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -206,13 +208,15 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap
+                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm
                   ${msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground rounded-br-md'
-                    : 'bg-muted rounded-bl-md'
+                    ? 'bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap'
+                    : 'bg-muted rounded-bl-md prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5'
                   }`}
               >
-                {msg.content}
+                {msg.role === 'user' ? msg.content : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                )}
                 {msg.role === 'assistant' && (
                   <div className="flex items-center gap-2 mt-2 pt-1 border-t border-border/30">
                     <button
@@ -234,8 +238,8 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
           {streamingContent && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-2.5 text-sm whitespace-pre-wrap">
-                {streamingContent}
+              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-2.5 text-sm prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
                 <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse ml-0.5" />
               </div>
             </div>
