@@ -1,4 +1,4 @@
-export type Provider = 'free' | 'openai' | 'anthropic' | 'google' | 'xai' | 'mistral' | 'deepseek' | 'cohere' | 'groq' | 'openrouter';
+export type Provider = 'free' | 'credits' | 'openai' | 'anthropic' | 'google' | 'xai' | 'mistral' | 'deepseek' | 'cohere' | 'groq' | 'openrouter';
 
 export interface AIModel {
   id: string;
@@ -241,6 +241,13 @@ export const PROVIDER_INFO: Record<Provider, { name: string; color: string; icon
     icon: '🎁',
     keyPrefix: '',
     keyUrl: '',
+  },
+  credits: {
+    name: 'Credits',
+    color: '#EAB308',
+    icon: '🪙',
+    keyPrefix: '',
+    keyUrl: '/credits',
   },
   openai: {
     name: 'OpenAI',

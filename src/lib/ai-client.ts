@@ -97,6 +97,11 @@ export async function streamChat(
       return;
     }
 
+    if (provider === 'credits') {
+      await streamCredits(modelId, messages, callbacks, signal);
+      return;
+    }
+
     const apiKey = await getApiKey(provider);
     if (!apiKey) {
       callbacks.onError(`No API key found for ${provider}. Add one in Settings.`);
@@ -369,6 +374,101 @@ async function streamFree(
         }
       } catch {
         // Skip malformed chunks
+      }
+    }
+  }
+
+  cb.onDone(usage);
+}
+
+async function streamCredits(
+  modelId: string,
+  messages: ChatMessage[],
+  cb: StreamCallbacks,
+  signal?: AbortSignal
+) {
+  // Get user token from IndexedDB
+  const { getUserToken } = await import('./credits');
+  const userToken = await getUserToken();
+
+  const res = await fetch('/api/credit-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, model: modelId, userToken }),
+    signal,
+  });
+
+  if (res.status === 402) {
+    const data = await res.json().catch(() => ({}));
+    cb.onError(data.error || 'Insufficient credits. Buy more at /credits.');
+    return;
+  }
+
+  if (res.status === 429) {
+    cb.onError('Rate limit reached. Please slow down.');
+    return;
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    cb.onError(data.error || 'Credit chat unavailable.');
+    return;
+  }
+
+  // Update local credit balance from response headers
+  const creditsRemaining = Number(res.headers.get('x-credits-remaining') || 0);
+  const creditsSpent = Number(res.headers.get('x-credits-spent') || 0);
+  cb.onMeta?.({ freeRemaining: creditsRemaining });
+
+  // The response format depends on which provider the server used
+  // It passes through the upstream SSE stream directly
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let usage = { inputTokens: 0, outputTokens: 0 };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const payload = line.slice(6).trim();
+      if (payload === '[DONE]') continue;
+      try {
+        const data = JSON.parse(payload);
+        // OpenAI-compatible format
+        if (data.choices?.[0]?.delta?.content) {
+          cb.onToken(data.choices[0].delta.content);
+        }
+        // Google format
+        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+          cb.onToken(data.candidates[0].content.parts[0].text);
+        }
+        // Anthropic format
+        if (data.type === 'content_block_delta' && data.delta?.text) {
+          cb.onToken(data.delta.text);
+        }
+        // Usage from OpenAI
+        if (data.usage) {
+          usage = {
+            inputTokens: data.usage.prompt_tokens || usage.inputTokens,
+            outputTokens: data.usage.completion_tokens || usage.outputTokens,
+          };
+        }
+        // Usage from Google
+        if (data.usageMetadata) {
+          usage = {
+            inputTokens: data.usageMetadata.promptTokenCount || 0,
+            outputTokens: data.usageMetadata.candidatesTokenCount || 0,
+          };
+        }
+      } catch {
+        // skip
       }
     }
   }

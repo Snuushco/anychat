@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge"
 import { ChevronDown, Zap, Clock, DollarSign } from "lucide-react"
 import { MODELS, PROVIDER_INFO, type AIModel, type Provider } from "@/lib/models"
+import { getModelCreditCost } from "@/lib/credits"
 import { useState, useMemo } from "react"
 
 interface ModelSelectorProps {
@@ -83,9 +84,14 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders }: M
                         {speedIcon[model.speed]}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{model.description}</p>
-                      <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                        <DollarSign className="h-2.5 w-2.5" />
-                        ${model.inputCostPer1k}/1K in · ${model.outputCostPer1k}/1K out
+                      <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-0.5">
+                          <DollarSign className="h-2.5 w-2.5" />
+                          ${model.inputCostPer1k}/1K in · ${model.outputCostPer1k}/1K out
+                        </span>
+                        <span className="text-yellow-500 font-medium">
+                          🪙 {getModelCreditCost(model.id)} credit{getModelCreditCost(model.id) !== 1 ? 's' : ''}
+                        </span>
                       </div>
                     </div>
                   </button>

@@ -237,71 +237,81 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ PRICING COMPARISON ═══ */}
+      {/* ═══ PRICING ═══ */}
       <section className="py-24 px-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <Section>
             <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-4">
-              Save up to 80%
+              Simple, flexible pricing
             </h2>
             <p className="text-gray-400 text-center mb-16 max-w-xl mx-auto">
-              Why pay $20/month when there's a better way?
+              Start free, upgrade when you need more.
             </p>
           </Section>
           <div className="grid md:grid-cols-3 gap-6">
             {/* Free */}
             <Section>
-              <div className="p-8 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/[0.08] relative">
+              <div className="p-8 rounded-2xl border-2 border-emerald-500/50 bg-emerald-500/[0.08] relative h-full flex flex-col">
                 <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-emerald-500 text-xs font-bold text-black">
-                  New
+                  Free
                 </div>
-                <div className="text-sm text-emerald-400 font-semibold uppercase tracking-wider mb-4">AnyChat Free</div>
-                <div className="text-4xl font-extrabold mb-1">$0<span className="text-lg text-gray-500 font-normal"> forever</span></div>
-                <div className="text-sm text-gray-400 mb-1">No setup required</div>
-                <div className="text-xs text-emerald-400 mb-6">20 messages/day included</div>
-                <div className="space-y-3 text-sm">
-                  {["No account needed", "No API key needed", "Gemini Flash powered", "Upgrade anytime with your own key"].map((item, i) => (
+                <div className="text-sm text-emerald-400 font-semibold uppercase tracking-wider mb-4">Free Tier</div>
+                <div className="text-4xl font-extrabold mb-1">€0<span className="text-lg text-gray-500 font-normal"> forever</span></div>
+                <div className="text-sm text-gray-400 mb-6">20 messages/day</div>
+                <div className="space-y-3 text-sm flex-1">
+                  {["No account needed", "Gemini Flash model", "20 messages/day", "All basic features"].map((item, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-emerald-400 shrink-0" /> {item}
                     </div>
                   ))}
                 </div>
+                <Link href="/dashboard" className="mt-6 block text-center px-6 py-3 rounded-xl border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all font-semibold">
+                  Get Started Free
+                </Link>
               </div>
             </Section>
 
-            {/* ChatGPT Plus */}
+            {/* Credits */}
             <Section delay={80}>
-              <div className="p-8 rounded-2xl border border-white/10 bg-white/[0.03]">
-                <div className="text-sm text-gray-500 font-semibold uppercase tracking-wider mb-4">ChatGPT Plus</div>
-                <div className="text-4xl font-extrabold mb-1">$20<span className="text-lg text-gray-500 font-normal">/mo</span></div>
-                <div className="text-sm text-gray-500 mb-6">Fixed price</div>
-                <div className="space-y-3 text-sm">
-                  {["1 AI model (GPT-4)", "Limited messages", "No tools/plugins", "Data stored by OpenAI"].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 text-gray-400">
-                      <X className="h-4 w-4 text-red-400 shrink-0" /> {item}
-                    </div>
-                  ))}
+              <div className="p-8 rounded-2xl border-2 border-yellow-500/50 bg-yellow-500/[0.08] relative h-full flex flex-col">
+                <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-yellow-500 text-xs font-bold text-black">
+                  Pay-as-you-go
                 </div>
-              </div>
-            </Section>
-
-            {/* AnyChat Pro BYOK */}
-            <Section delay={120}>
-              <div className="p-8 rounded-2xl border-2 border-indigo-500/50 bg-indigo-500/[0.08] relative">
-                <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-indigo-500 text-xs font-bold">
-                  Recommended
-                </div>
-                <div className="text-sm text-indigo-400 font-semibold uppercase tracking-wider mb-4">AnyChat BYOK</div>
-                <div className="text-4xl font-extrabold mb-1">$0<span className="text-lg text-gray-500 font-normal"> platform</span></div>
-                <div className="text-sm text-gray-400 mb-1">+ ~$2-5/mo usage</div>
-                <div className="text-xs text-indigo-400 mb-6">Pay only for what you use</div>
-                <div className="space-y-3 text-sm">
-                  {["10+ AI models", "Unlimited messages", "6 built-in tools", "Data stays on your device"].map((item, i) => (
+                <div className="text-sm text-yellow-400 font-semibold uppercase tracking-wider mb-4">Credits</div>
+                <div className="text-4xl font-extrabold mb-1">€5<span className="text-lg text-gray-500 font-normal">+</span></div>
+                <div className="text-sm text-gray-400 mb-6">500+ credits per package</div>
+                <div className="space-y-3 text-sm flex-1">
+                  {["All 10+ AI models", "No API keys needed", "Pay only for what you use", "Credits never expire", "From 1 credit/message"].map((item, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <Check className="h-4 w-4 text-emerald-400 shrink-0" /> {item}
                     </div>
                   ))}
                 </div>
+                <Link href="/credits" className="mt-6 block text-center px-6 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition-all">
+                  Buy Credits →
+                </Link>
+              </div>
+            </Section>
+
+            {/* Pro */}
+            <Section delay={120}>
+              <div className="p-8 rounded-2xl border-2 border-indigo-500/50 bg-indigo-500/[0.08] relative h-full flex flex-col">
+                <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-indigo-500 text-xs font-bold">
+                  Best Value
+                </div>
+                <div className="text-sm text-indigo-400 font-semibold uppercase tracking-wider mb-4">Pro</div>
+                <div className="text-4xl font-extrabold mb-1">€9<span className="text-lg text-gray-500 font-normal">/month</span></div>
+                <div className="text-sm text-gray-400 mb-6">100 messages/day included</div>
+                <div className="space-y-3 text-sm flex-1">
+                  {["100 free messages/day", "Cloud sync across devices", "Priority support badge", "Early access to features", "Or bring your own API keys"].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-emerald-400 shrink-0" /> {item}
+                    </div>
+                  ))}
+                </div>
+                <Link href="/credits" className="mt-6 block text-center px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition-all">
+                  Upgrade to Pro →
+                </Link>
               </div>
             </Section>
           </div>

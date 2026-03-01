@@ -18,6 +18,7 @@ import {
   getMessages, type Message, type Conversation
 } from "@/lib/chat-store"
 import { getAllKeys, saveApiKey, validateApiKey } from "@/lib/key-store"
+import { getCreditBalance, type CreditBalance } from "@/lib/credits"
 import { SUGGESTED_PROMPTS } from "@/lib/prompts"
 import { InlineKeySetup } from "./inline-key-setup"
 import { FileUpload, type FileAttachment } from "./file-upload"
@@ -57,6 +58,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [memoryContext, setMemoryContext] = useState<string>("")
   const [allTools, setAllTools] = useState<Tool[]>(ALL_TOOLS)
   const [freeUsage, setFreeUsage] = useState<FreeUsageState | null>(null)
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -111,7 +113,13 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
   async function loadKeysAndDefaultModel(): Promise<void> {
     const keys = await getAllKeys()
+    const credits = await getCreditBalance().catch(() => null)
+    setCreditBalance(credits)
     const providers = new Set<string>(["free", ...keys.map(k => k.provider)])
+    // Add credits as available provider if user has credits
+    if (credits && credits.credits > 0) {
+      providers.add("credits")
+    }
     setAvailableProviders(providers)
 
     const saved = localStorage.getItem("anychat_default_model")
@@ -378,12 +386,19 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             {agentMode ? "Agent" : "Chat"}
           </button>
         </div>
-        {sessionCost > 0 && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <DollarSign className="h-3 w-3" />
-            €{sessionCost.toFixed(4)}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {creditBalance && creditBalance.credits > 0 && (
+            <Link href="/credits" className="flex items-center gap-1 text-xs text-yellow-500 hover:text-yellow-400 transition-colors">
+              🪙 {creditBalance.credits}
+            </Link>
+          )}
+          {sessionCost > 0 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <DollarSign className="h-3 w-3" />
+              €{sessionCost.toFixed(4)}
+            </div>
+          )}
+        </div>
       </div>
 
       {selectedModel === 'free' && (
