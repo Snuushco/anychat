@@ -11,7 +11,10 @@ export default function AgentsPage() {
   const [hasKeys, setHasKeys] = useState<boolean | null>(null)
 
   useEffect(() => {
-    getAllKeys().then(keys => setHasKeys(keys.length > 0))
+    getAllKeys().then(keys => {
+      const defaultModel = localStorage.getItem("anychat_default_model") || "free"
+      setHasKeys(keys.length > 0 || defaultModel === "free")
+    })
   }, [])
 
   return (

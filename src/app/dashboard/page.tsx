@@ -42,7 +42,10 @@ export default function DashboardPage() {
       setConversations(convs.slice(0, 5))
       setLoading(false)
     })
-    getAllKeys().then(keys => setHasKeys(keys.length > 0))
+    getAllKeys().then(keys => {
+      const defaultModel = localStorage.getItem("anychat_default_model") || "free"
+      setHasKeys(keys.length > 0 || defaultModel === "free")
+    })
   }, [])
 
   if (showOnboarding) {
@@ -50,7 +53,10 @@ export default function DashboardPage() {
       <Onboarding onComplete={() => {
         setShowOnboarding(false)
         setUserName(localStorage.getItem("anychat_user_name") || "")
-        getAllKeys().then(keys => setHasKeys(keys.length > 0))
+        getAllKeys().then(keys => {
+          const defaultModel = localStorage.getItem("anychat_default_model") || "free"
+          setHasKeys(keys.length > 0 || defaultModel === "free")
+        })
       }} />
     )
   }
