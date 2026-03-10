@@ -6,8 +6,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Square, Copy, Check, DollarSign, Zap, MessageSquare, ChevronDown, Volume2 } from "lucide-react"
+import { Send, Square, Copy, Check, DollarSign, Zap, MessageSquare, ChevronDown, Volume2, Key, Coins, Gift, ArrowRight } from "lucide-react"
 import { ModelSelector } from "./model-selector"
 import { streamChat, streamChatWithTools, type ChatMessage as AIChatMessage, type ContentPart } from "@/lib/ai-client"
 import { MODELS, calculateCost, getModelById, PROVIDER_INFO } from "@/lib/models"
@@ -18,7 +17,7 @@ import {
   getMessages, type Message, type Conversation
 } from "@/lib/chat-store"
 import { getAllKeys, saveApiKey, validateApiKey } from "@/lib/key-store"
-import { getCreditBalance, type CreditBalance } from "@/lib/credits"
+import { getCreditBalance, getModelCreditCost, refreshCreditBalanceFromServer, setCreditBalance as setLocalCreditBalance, type CreditBalance } from "@/lib/credits"
 import { SUGGESTED_PROMPTS } from "@/lib/prompts"
 import { InlineKeySetup } from "./inline-key-setup"
 import { FileUpload, type FileAttachment } from "./file-upload"
@@ -33,6 +32,7 @@ interface ChatInterfaceProps {
   onConversationCreated: (conv: Conversation) => void
   onConversationUpdated: (conv: Conversation) => void
   agentSystemPrompt?: string | null
+  initialPrompt?: string | null
 }
 
 interface FreeUsageState {
@@ -41,7 +41,7 @@ interface FreeUsageState {
   limit: number
 }
 
-export function ChatInterface({ conversation, onConversationCreated, onConversationUpdated, agentSystemPrompt }: ChatInterfaceProps) {
+export function ChatInterface({ conversation, onConversationCreated, onConversationUpdated, agentSystemPrompt, initialPrompt }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
@@ -59,6 +59,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [allTools, setAllTools] = useState<Tool[]>(ALL_TOOLS)
   const [freeUsage, setFreeUsage] = useState<FreeUsageState | null>(null)
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null)
+  const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -90,6 +91,11 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     loadMessages()
   }, [loadMessages])
 
+  useEffect(() => {
+    if (!initialPrompt) return
+    setInput(prev => prev || initialPrompt)
+  }, [initialPrompt])
+
   function getTodayDateKey(): string {
     return new Date().toISOString().slice(0, 10)
   }
@@ -113,7 +119,9 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
   async function loadKeysAndDefaultModel(): Promise<void> {
     const keys = await getAllKeys()
-    const credits = await getCreditBalance().catch(() => null)
+    const localCredits = await getCreditBalance().catch(() => null)
+    const syncedCredits = await refreshCreditBalanceFromServer().catch(() => null)
+    const credits = syncedCredits || localCredits
     setCreditBalance(credits)
     const providers = new Set<string>(["free", ...keys.map(k => k.provider)])
     // Add credits as available provider if user has credits
@@ -142,14 +150,27 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     }
   }, [messages, streamingContent])
 
+  function canUseCreditsForModel(modelId: string): boolean {
+    const needed = getModelCreditCost(modelId)
+    return (creditBalance?.credits ?? 0) >= needed
+  }
+
+  function getTransportProvider(model: { id: string; provider: import("@/lib/models").Provider }): import("@/lib/models").Provider {
+    if (model.provider === "free") return "free"
+    if (availableProviders.has(model.provider)) return model.provider
+    if (canUseCreditsForModel(model.id)) return "credits"
+    return model.provider
+  }
+
   async function handleSend(overrideInput?: string) {
     const text = overrideInput ?? input
     if ((!text.trim() && attachments.length === 0) || isStreaming) return
 
     const model = getModelById(selectedModel) || MODELS[0]
+    const transportProvider = getTransportProvider(model)
 
-    // Check if user has key for this provider
-    if (model.provider !== 'free' && !availableProviders.has(model.provider)) {
+    // If no BYOK key and no credits fallback, show key setup
+    if (model.provider !== 'free' && transportProvider === model.provider && !availableProviders.has(model.provider)) {
       setShowKeyGate({ provider: model.provider, modelName: model.name, pendingMessage: text.trim() })
       return
     }
@@ -184,6 +205,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     setMessages(prev => [...prev, userMsg])
     setInput("")
     setAttachments([])
+    setLastFailedInput(null)
 
     const allMsgs = [...messages, userMsg]
     const aiMessages: AIChatMessage[] = []
@@ -233,12 +255,17 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     let fullContent = ""
 
     const onDone = async (usage: { inputTokens: number; outputTokens: number }) => {
-      if (model.provider === 'free') {
+      if (transportProvider === 'free') {
         const today = getTodayDateKey()
         const current = freeUsage && freeUsage.date === today ? freeUsage : { count: 0, date: today, limit: 20 }
         const nextUsage = { ...current, count: Math.min(current.limit, current.count + 1) }
         setFreeUsage(nextUsage)
         localStorage.setItem("anychat_free_usage", JSON.stringify(nextUsage))
+      }
+
+      if (transportProvider === 'credits') {
+        const refreshed = await refreshCreditBalanceFromServer()
+        if (refreshed) setCreditBalance(refreshed)
       }
 
       const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
@@ -280,6 +307,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       setStreamingContent("")
       setIsStreaming(false)
       if (!error) return // aborted
+      setLastFailedInput(text.trim() || null)
       const errMsg: Message = {
         id: crypto.randomUUID(),
         conversationId: conv!.id,
@@ -298,8 +326,8 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
     const enabledTools = getEnabledTools(allTools)
 
-    if (agentMode && enabledTools.length > 0) {
-      await streamChatWithTools(model.id, model.provider, aiMessages, enabledTools, {
+    if (agentMode && enabledTools.length > 0 && transportProvider !== 'credits') {
+      await streamChatWithTools(model.id, transportProvider, aiMessages, enabledTools, {
         onToken,
         onDone,
         onError,
@@ -324,19 +352,32 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
         },
       }, controller.signal)
     } else {
-      await streamChat(model.id, model.provider, aiMessages, {
+      await streamChat(model.id, transportProvider, aiMessages, {
         onToken,
         onDone,
         onError,
-        onMeta: (meta) => {
-          if (model.provider !== 'free') return
-          const usageState: FreeUsageState = {
-            count: meta.freeUsed ?? 0,
-            date: getTodayDateKey(),
-            limit: meta.freeLimit ?? 20,
+        onMeta: async (meta) => {
+          if (transportProvider === 'free') {
+            const usageState: FreeUsageState = {
+              count: meta.freeUsed ?? 0,
+              date: getTodayDateKey(),
+              limit: meta.freeLimit ?? 20,
+            }
+            setFreeUsage(usageState)
+            localStorage.setItem("anychat_free_usage", JSON.stringify(usageState))
+            return
           }
-          setFreeUsage(usageState)
-          localStorage.setItem("anychat_free_usage", JSON.stringify(usageState))
+
+          if (transportProvider === 'credits' && typeof meta.creditsRemaining === 'number') {
+            const current = await getCreditBalance()
+            const next = {
+              ...current,
+              credits: meta.creditsRemaining,
+              updatedAt: new Date().toISOString(),
+            }
+            await setLocalCreditBalance(next)
+            setCreditBalance(next)
+          }
         },
       }, controller.signal)
     }
@@ -361,7 +402,9 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const modelName = getModelById(selectedModel)?.name || "AI"
+  const modelDef = getModelById(selectedModel)
+  const modelName = modelDef?.name || "AI"
+  const activeTransport = modelDef ? getTransportProvider(modelDef) : "free"
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -372,6 +415,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             selectedModel={selectedModel}
             onSelect={(m) => setSelectedModel(m.id)}
             availableProviders={availableProviders}
+            creditBalance={creditBalance?.credits ?? 0}
           />
           {/* Agent mode toggle */}
           <button
@@ -385,6 +429,10 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
             {agentMode ? <Zap className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
             {agentMode ? "Agent" : "Chat"}
           </button>
+
+          <span className="text-[11px] px-2 py-1 rounded-full border border-border/50 text-muted-foreground">
+            {activeTransport === 'free' ? '🎁 Free' : activeTransport === 'credits' ? '🪙 Credits' : '🔑 BYOK'}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           {creditBalance && creditBalance.credits > 0 && (
@@ -416,14 +464,68 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       <div className="flex-1 min-h-0 overflow-y-auto px-4" ref={scrollRef}>
         <div className="max-w-2xl mx-auto py-4 space-y-4">
           {messages.length === 0 && !streamingContent && (
-            <div className="text-center py-16 space-y-6 animate-fade-in">
+            <div className="text-center py-12 space-y-6 animate-fade-in">
               <div>
                 <p className="text-4xl mb-3">⚡</p>
-                <h2 className="text-xl font-semibold">What can I help with?</h2>
+                <h2 className="text-xl font-semibold">
+                  {agentSystemPrompt ? "Agent ready" : "What can I help with?"}
+                </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {agentSystemPrompt ? "Agent ready" : `Powered by ${modelName}`}
+                  Powered by {modelName}
                 </p>
               </div>
+
+              {/* Quick-start cards for new users (no keys, no credits) */}
+              {availableProviders.size <= 1 && !creditBalance?.credits && (
+                <div className="max-w-md mx-auto space-y-3 text-left">
+                  <p className="text-xs text-center text-muted-foreground font-medium uppercase tracking-wide">Quick start</p>
+                  <button
+                    onClick={() => { setSelectedModel("free"); }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 ${
+                      selectedModel === 'free'
+                        ? 'border-emerald-500/50 bg-emerald-500/10'
+                        : 'border-border/50 bg-muted/30 hover:bg-muted/50 hover:border-border'
+                    }`}
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+                      <Gift className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Start chatting free</p>
+                      <p className="text-xs text-muted-foreground">{freeUsage ? `${Math.max(0, freeUsage.limit - freeUsage.count)}` : '20'} messages left today · No setup needed</p>
+                    </div>
+                    {selectedModel === 'free' && <Check className="h-4 w-4 text-emerald-500 shrink-0" />}
+                  </button>
+
+                  <Link
+                    href="/settings"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/50 hover:border-border transition-all duration-200"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
+                      <Key className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Bring your own API key</p>
+                      <p className="text-xs text-muted-foreground">Unlimited access · Pay providers directly</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </Link>
+
+                  <Link
+                    href="/credits"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/50 hover:border-border transition-all duration-200"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-yellow-500/20 flex items-center justify-center shrink-0">
+                      <Coins className="h-4 w-4 text-yellow-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">Buy credits</p>
+                      <p className="text-xs text-muted-foreground">All models, no keys needed · From €5</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </Link>
+                </div>
+              )}
 
               {/* Suggested prompts */}
               <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
@@ -608,6 +710,20 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
               </Button>
             )}
           </div>
+
+          {lastFailedInput && !isStreaming && (
+            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <span>Last message failed to send.</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => handleSend(lastFailedInput)}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

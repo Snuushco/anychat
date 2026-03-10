@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { ChatInterface } from "@/components/chat-interface"
 import { KeyManager } from "@/components/key-manager"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { getConversations, deleteConversation, type Conversation } from "@/lib/chat-store"
+import { getConversations, type Conversation } from "@/lib/chat-store"
 import { useSearchParams } from "next/navigation"
 import { getAgentById } from "@/lib/agents"
 import { Suspense } from "react"
@@ -14,6 +14,7 @@ function ChatPageInner() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [agentSystemPrompt, setAgentSystemPrompt] = useState<string | null>(null)
+  const [initialPrompt, setInitialPrompt] = useState<string | null>(null)
   const searchParams = useSearchParams()
 
   const loadConversations = useCallback(async () => {
@@ -26,12 +27,27 @@ function ChatPageInner() {
   }, [loadConversations])
 
   useEffect(() => {
+    const conversationId = searchParams.get("id")
+    if (conversationId && conversations.length > 0) {
+      const matchedConversation = conversations.find((conv) => conv.id === conversationId) || null
+      setActiveConversation(matchedConversation)
+    }
+
+    if (!conversationId) {
+      setActiveConversation(null)
+    }
+
     const agentId = searchParams.get("agent")
     if (agentId) {
       const agent = getAgentById(agentId)
       if (agent) setAgentSystemPrompt(agent.systemPrompt)
+    } else {
+      setAgentSystemPrompt(null)
     }
-  }, [searchParams])
+
+    const prompt = searchParams.get("prompt")
+    setInitialPrompt(prompt)
+  }, [conversations, searchParams])
 
   function handleConversationCreated(conv: Conversation) {
     setActiveConversation(conv)
@@ -51,13 +67,14 @@ function ChatPageInner() {
           onConversationCreated={handleConversationCreated}
           onConversationUpdated={handleConversationUpdated}
           agentSystemPrompt={agentSystemPrompt}
+          initialPrompt={initialPrompt}
         />
       </div>
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>API Keys Beheren</DialogTitle>
+            <DialogTitle>Manage API Keys</DialogTitle>
           </DialogHeader>
           <KeyManager onKeysChanged={() => {}} />
         </DialogContent>

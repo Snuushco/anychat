@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { creditStoreMode, getCreditUser, refundCredits, spendCredits } from '@/lib/server/credit-store';
 
 type ContentPart =
   | { type: 'text'; text: string }
@@ -23,10 +24,6 @@ const MODEL_CREDIT_COSTS: Record<string, number> = {
   'claude-opus-4-20250514': 10, 'o3-mini': 10,
 };
 
-// Simple in-memory user credit tracking (in production use a database)
-// Format: { userToken: { credits: number, isPro: boolean, proExpiresAt: string | null } }
-const userCredits = new Map<string, { credits: number; isPro: boolean; proExpiresAt: string | null }>();
-
 // Rate limiting per IP
 const ipRateLimit = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_PER_MINUTE = 30;
@@ -47,25 +44,6 @@ function checkRateLimit(ip: string): boolean {
   if (existing.count >= RATE_LIMIT_PER_MINUTE) return false;
   existing.count++;
   return true;
-}
-
-// Get user credit data (exported for webhook use)
-export function getUserCredits(userToken: string) {
-  if (!userCredits.has(userToken)) {
-    userCredits.set(userToken, { credits: 0, isPro: false, proExpiresAt: null });
-  }
-  return userCredits.get(userToken)!;
-}
-
-export function addUserCredits(userToken: string, amount: number) {
-  const user = getUserCredits(userToken);
-  user.credits += amount;
-}
-
-export function setUserPro(userToken: string, expiresAt: string) {
-  const user = getUserCredits(userToken);
-  user.isPro = true;
-  user.proExpiresAt = expiresAt;
 }
 
 function contentToOpenAI(content: string | ContentPart[]): any {
@@ -251,7 +229,7 @@ export async function POST(req: NextRequest) {
     }
 
     const creditCost = MODEL_CREDIT_COSTS[modelId] ?? 3;
-    const user = getUserCredits(userToken);
+    const user = await getCreditUser(userToken);
 
     if (user.credits < creditCost) {
       return NextResponse.json({
@@ -271,9 +249,18 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // Deduct credits optimistically
-    user.credits -= creditCost;
+    // Deduct credits first. Refund on upstream failure.
+    const charge = await spendCredits(userToken, creditCost);
+    if (!charge.ok) {
+      return NextResponse.json({
+        error: 'Insufficient credits.',
+        required: creditCost,
+        balance: charge.user.credits,
+        buyUrl: '/credits',
+      }, { status: 402 });
+    }
 
+    let remainingCredits = charge.user.credits;
     let upstream: Response;
     switch (provider) {
       case 'openai': upstream = await streamOpenAI(modelId, messages, apiKey); break;
@@ -285,12 +272,12 @@ export async function POST(req: NextRequest) {
       case 'groq': upstream = await streamGroq(modelId, messages, apiKey); break;
       case 'cohere': upstream = await streamCohere(modelId, messages, apiKey); break;
       default:
-        user.credits += creditCost; // refund
+        remainingCredits = (await refundCredits(userToken, creditCost)).credits;
         return NextResponse.json({ error: 'Unsupported model.' }, { status: 400 });
     }
 
     if (!upstream.ok || !upstream.body) {
-      user.credits += creditCost; // refund on error
+      remainingCredits = (await refundCredits(userToken, creditCost)).credits;
       const err = await upstream.json().catch(() => ({}));
       return NextResponse.json(
         { error: (err as any)?.error?.message || 'Model unavailable. Try again later.' },
@@ -303,7 +290,7 @@ export async function POST(req: NextRequest) {
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
       'x-credits-spent': String(creditCost),
-      'x-credits-remaining': String(user.credits),
+      'x-credits-remaining': String(remainingCredits),
     });
 
     return new NextResponse(upstream.body, { status: 200, headers });
@@ -318,10 +305,11 @@ export async function GET(req: NextRequest) {
   if (!userToken) {
     return NextResponse.json({ error: 'Missing userToken' }, { status: 400 });
   }
-  const user = getUserCredits(userToken);
+  const user = await getCreditUser(userToken);
   return NextResponse.json({
     credits: user.credits,
     isPro: user.isPro,
     proExpiresAt: user.proExpiresAt,
+    store: creditStoreMode(),
   });
 }

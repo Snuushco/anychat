@@ -12,9 +12,10 @@ interface ModelSelectorProps {
   selectedModel: string
   onSelect: (model: AIModel) => void
   availableProviders: Set<string>
+  creditBalance?: number
 }
 
-export function ModelSelector({ selectedModel, onSelect, availableProviders }: ModelSelectorProps) {
+export function ModelSelector({ selectedModel, onSelect, availableProviders, creditBalance = 0 }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
   const current = MODELS.find(m => m.id === selectedModel) || MODELS[0]
 
@@ -62,12 +63,17 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders }: M
                 <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: PROVIDER_INFO[provider].color }}>
                   {PROVIDER_INFO[provider].name}
                 </span>
-                {!availableProviders.has(provider) && (
-                  <Badge variant="outline" className="text-[10px] ml-auto">Key required</Badge>
+                {!availableProviders.has(provider) && provider !== 'free' && creditBalance <= 0 && (
+                  <Badge variant="outline" className="text-[10px] ml-auto">Key or credits required</Badge>
                 )}
               </div>
               {models.map((model) => {
-                const isAvailable = availableProviders.has(model.provider)
+                const creditCost = getModelCreditCost(model.id)
+                const hasProviderAccess = availableProviders.has(model.provider)
+                const isFree = model.provider === 'free'
+                const canUseCredits = !isFree && !hasProviderAccess && creditBalance >= creditCost
+                const isAvailable = isFree || hasProviderAccess || canUseCredits
+
                 return (
                   <button
                     key={model.id}
@@ -84,14 +90,22 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders }: M
                         {speedIcon[model.speed]}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{model.description}</p>
+                      {!isAvailable && model.provider !== 'free' && (
+                        <p className="text-[10px] text-amber-500 mt-0.5">
+                          Need key or {creditCost} credits
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
                         <span className="flex items-center gap-0.5">
                           <DollarSign className="h-2.5 w-2.5" />
                           ${model.inputCostPer1k}/1K in · ${model.outputCostPer1k}/1K out
                         </span>
                         <span className="text-yellow-500 font-medium">
-                          🪙 {getModelCreditCost(model.id)} credit{getModelCreditCost(model.id) !== 1 ? 's' : ''}
+                          🪙 {creditCost} credit{creditCost !== 1 ? 's' : ''}
                         </span>
+                        {canUseCredits && (
+                          <span className="text-emerald-500 font-medium">Uses credits</span>
+                        )}
                       </div>
                     </div>
                   </button>

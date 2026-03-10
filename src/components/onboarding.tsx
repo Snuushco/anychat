@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,8 +12,9 @@ interface OnboardingProps {
   onComplete: () => void
 }
 
-const PROVIDERS: { provider: Provider; name: string; subtitle: string; icon: string; badge?: string; prominent?: boolean }[] = [
-  { provider: "free", name: "Start free — No API key needed", subtitle: "20 messages/day with Gemini Flash", icon: "🎁", badge: "Recommended", prominent: true },
+const PROVIDERS: { provider: Provider | "credits"; name: string; subtitle: string; icon: string; badge?: string; prominent?: boolean }[] = [
+  { provider: "free", name: "Start free — No API key needed", subtitle: "20 messages/day with Gemini Flash", icon: "🎁", badge: "Fastest start", prominent: true },
+  { provider: "credits", name: "Use credits — No API key needed", subtitle: "Unlock all models without setup", icon: "🪙", badge: "All models" },
   { provider: "openai", name: "OpenAI (ChatGPT)", subtitle: "Most popular", icon: "🟢", badge: "Popular" },
   { provider: "anthropic", name: "Anthropic (Claude)", subtitle: "Best for writing", icon: "🟤" },
   { provider: "google", name: "Google (Gemini)", subtitle: "Great value", icon: "🔵" },
@@ -22,6 +24,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [name, setName] = useState("")
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null)
+  const router = useRouter()
 
   function handleNameSubmit() {
     if (name.trim()) {
@@ -30,12 +33,21 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     }
   }
 
-  function handleProviderSelect(provider: Provider) {
+  function handleProviderSelect(provider: Provider | "credits") {
     if (provider === 'free') {
       localStorage.setItem("anychat_default_model", "free")
       localStorage.setItem("anychat_onboarded", "true")
       if (name.trim()) localStorage.setItem("anychat_user_name", name.trim())
       onComplete()
+      return
+    }
+
+    if (provider === 'credits') {
+      localStorage.setItem("anychat_default_model", "free")
+      localStorage.setItem("anychat_onboarded", "true")
+      if (name.trim()) localStorage.setItem("anychat_user_name", name.trim())
+      onComplete()
+      router.push("/credits")
       return
     }
 

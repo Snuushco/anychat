@@ -72,7 +72,14 @@ export interface StreamCallbacks {
   onToken: (token: string) => void;
   onDone: (usage: { inputTokens: number; outputTokens: number }) => void;
   onError: (error: string) => void;
-  onMeta?: (meta: { freeRemaining?: number; freeUsed?: number; freeLimit?: number; freeResetAt?: number }) => void;
+  onMeta?: (meta: {
+    freeRemaining?: number;
+    freeUsed?: number;
+    freeLimit?: number;
+    freeResetAt?: number;
+    creditsRemaining?: number;
+    creditsSpent?: number;
+  }) => void;
 }
 
 const OPENAI_COMPATIBLE_ENDPOINTS: Partial<Record<Provider, string>> = {
@@ -320,10 +327,13 @@ async function streamFree(
   cb: StreamCallbacks,
   signal?: AbortSignal
 ) {
+  const { getUserToken } = await import('./credits');
+  const userToken = await getUserToken().catch(() => null);
+
   const res = await fetch('/api/free-chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, userToken }),
     signal,
   });
 
@@ -418,7 +428,7 @@ async function streamCredits(
   // Update local credit balance from response headers
   const creditsRemaining = Number(res.headers.get('x-credits-remaining') || 0);
   const creditsSpent = Number(res.headers.get('x-credits-spent') || 0);
-  cb.onMeta?.({ freeRemaining: creditsRemaining });
+  cb.onMeta?.({ creditsRemaining, creditsSpent });
 
   // The response format depends on which provider the server used
   // It passes through the upstream SSE stream directly
@@ -547,7 +557,7 @@ export async function streamChatWithTools(
   callbacks: ToolCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
-  if (provider === 'free') {
+  if (provider === 'free' || provider === 'credits') {
     await streamChat(modelId, provider, messages, callbacks, signal);
     return;
   }

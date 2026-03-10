@@ -5,14 +5,26 @@ import { Coins, Sparkles, Zap, Crown, Check, Copy, ArrowRight } from "lucide-rea
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { getCreditBalance, getUserToken, CREDIT_PACKAGES, PAYMENT_LINKS, type CreditBalance } from "@/lib/credits"
+import { getCreditBalance, refreshCreditBalanceFromServer, CREDIT_PACKAGES, PAYMENT_LINKS, type CreditBalance } from "@/lib/credits"
 
 export default function CreditsPage() {
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    getCreditBalance().then(setBalance)
+    let mounted = true
+
+    getCreditBalance().then((local) => {
+      if (mounted) setBalance(local)
+    })
+
+    refreshCreditBalanceFromServer().then((synced) => {
+      if (mounted && synced) setBalance(synced)
+    })
+
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const copyToken = async () => {

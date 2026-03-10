@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCreditUser } from '@/lib/server/credit-store';
 
 type ContentPart =
   | { type: 'text'; text: string }
@@ -10,9 +11,11 @@ interface ChatMessage {
 }
 
 const FREE_DAILY_LIMIT = 20;
+const PRO_DAILY_LIMIT = 100;
 const FREE_MODEL = 'gemini-2.5-flash';
 
 const ipUsage = new Map<string, { count: number; resetAt: number }>();
+const tokenUsage = new Map<string, { count: number; resetAt: number }>();
 
 function getIp(req: NextRequest): string {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -52,27 +55,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const body = await req.json().catch(() => ({} as { messages?: ChatMessage[]; model?: string; userToken?: string }));
+
     const ip = getIp(req);
     const now = Date.now();
-    const existing = ipUsage.get(ip);
+    const userToken = typeof body.userToken === 'string' && body.userToken.startsWith('ac_') ? body.userToken : null;
+
+    let isPro = false;
+    if (userToken) {
+      const user = await getCreditUser(userToken);
+      isPro = user.isPro;
+    }
+
+    const limit = isPro ? PRO_DAILY_LIMIT : FREE_DAILY_LIMIT;
+    const usageMap = userToken ? tokenUsage : ipUsage;
+    const usageKey = userToken || ip;
+    const existing = usageMap.get(usageKey);
     const usage = !existing || now >= existing.resetAt
       ? { count: 0, resetAt: nextMidnightTs() }
       : existing;
 
-    if (usage.count >= FREE_DAILY_LIMIT) {
+    if (usage.count >= limit) {
       return NextResponse.json(
         {
-          error: 'Daily free limit reached. Add your own API key for unlimited access.',
-          upgradeUrl: '/settings',
+          error: isPro
+            ? 'Daily Pro limit reached. Try again tomorrow.'
+            : 'Daily free limit reached. Upgrade to Pro, add credits, or bring your own API key.',
+          upgradeUrl: '/credits',
         },
         { status: 429 }
       );
     }
 
     usage.count += 1;
-    ipUsage.set(ip, usage);
-
-    const body = await req.json().catch(() => ({} as { messages?: ChatMessage[]; model?: string }));
+    usageMap.set(usageKey, usage);
     const messages = Array.isArray(body.messages) ? body.messages : [];
 
     if (messages.length === 0) {
@@ -119,10 +135,11 @@ export async function POST(req: NextRequest) {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
-      'x-free-limit': String(FREE_DAILY_LIMIT),
+      'x-free-limit': String(limit),
       'x-free-used': String(usage.count),
-      'x-free-remaining': String(Math.max(0, FREE_DAILY_LIMIT - usage.count)),
+      'x-free-remaining': String(Math.max(0, limit - usage.count)),
       'x-free-reset-at': String(usage.resetAt),
+      'x-free-is-pro': isPro ? '1' : '0',
     });
 
     return new NextResponse(upstream.body, { status: 200, headers });

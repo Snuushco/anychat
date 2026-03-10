@@ -118,6 +118,28 @@ export async function setProStatus(isPro: boolean, expiresAt: string | null): Pr
   await setCreditBalance(balance);
 }
 
+export async function refreshCreditBalanceFromServer(): Promise<CreditBalance | null> {
+  try {
+    const local = await getCreditBalance();
+    const res = await fetch(`/api/credit-chat?userToken=${encodeURIComponent(local.userToken)}`, { cache: 'no-store' });
+    if (!res.ok) return null;
+
+    const data = await res.json() as { credits?: number; isPro?: boolean; proExpiresAt?: string | null };
+    const merged: CreditBalance = {
+      ...local,
+      credits: Number(data.credits ?? local.credits),
+      isPro: Boolean(data.isPro ?? local.isPro),
+      proExpiresAt: data.proExpiresAt ?? local.proExpiresAt,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await setCreditBalance(merged);
+    return merged;
+  } catch {
+    return null;
+  }
+}
+
 function generateUserToken(): string {
   const arr = new Uint8Array(24);
   crypto.getRandomValues(arr);
