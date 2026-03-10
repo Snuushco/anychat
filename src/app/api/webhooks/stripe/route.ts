@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { addCredits, clearPro, setPro } from '@/lib/server/credit-store';
+import { addCredits, clearPro, hasProcessedStripeEvent, markStripeEventProcessed, setPro } from '@/lib/server/credit-store';
+
+export const runtime = 'nodejs';
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -8,12 +10,18 @@ function getStripe() {
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
 
-// Map price amounts to credit amounts
 const CREDIT_AMOUNTS: Record<number, number> = {
-  500: 500,    // €5 = 500 credits
-  1000: 1100,  // €10 = 1,100 credits
-  2500: 3000,  // €25 = 3,000 credits
+  500: 500,
+  1000: 1100,
+  2500: 3000,
 };
+
+function getProExpiryFromTimestamp(unixSeconds?: number | null): string {
+  if (unixSeconds && Number.isFinite(unixSeconds)) {
+    return new Date(unixSeconds * 1000).toISOString();
+  }
+  return new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString();
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +29,6 @@ export async function POST(req: NextRequest) {
     const sig = req.headers.get('stripe-signature');
 
     let event: Stripe.Event;
-
     const stripe = getStripe();
 
     if (WEBHOOK_SECRET && sig) {
@@ -32,8 +39,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
       }
     } else {
-      // In development without webhook secret, parse directly
       event = JSON.parse(body) as Stripe.Event;
+    }
+
+    if (await hasProcessedStripeEvent(event.id)) {
+      return NextResponse.json({ received: true, duplicate: true });
     }
 
     switch (event.type) {
@@ -41,51 +51,67 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const userToken = extractUserToken(session);
         if (!userToken) {
-          console.error('No user token found in session:', session.id);
+          console.error('No user token found in checkout.session.completed:', session.id);
+          break;
+        }
+
+        if (session.payment_status !== 'paid' && session.mode === 'payment') {
           break;
         }
 
         if (session.mode === 'payment') {
-          // One-time credit purchase
           const amount = session.amount_total || 0;
           const credits = CREDIT_AMOUNTS[amount] || 0;
           if (credits > 0) {
-            await addCredits(userToken, credits);
-            console.log(`Added ${credits} credits to user ${userToken}`);
+            await addCredits(userToken, credits, event.id, {
+              checkoutSessionId: session.id,
+              amount,
+              mode: session.mode,
+            });
           }
         } else if (session.mode === 'subscription') {
-          // Pro subscription
-          const expiresAt = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString();
-          await setPro(userToken, expiresAt);
-          console.log(`Set Pro status for user ${userToken}`);
+          await setPro(userToken, getProExpiryFromTimestamp(undefined));
         }
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
-        const userToken = subscription.metadata?.user_token || null;
-        if (userToken) {
-          await clearPro(userToken);
-        }
-        console.log('Subscription cancelled:', subscription.id);
         break;
       }
 
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription | null };
-        if ((invoice as any).subscription) {
-          // Recurring pro payment - extend pro status
-          const userToken = (invoice.metadata?.user_token || (invoice as any).subscription_details?.metadata?.user_token) as string | undefined;
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null;
+          lines?: { data?: Array<{ period?: { end?: number } }> };
+          parent?: { subscription_details?: { metadata?: Record<string, string> } };
+        };
+
+        const userToken =
+          invoice.metadata?.user_token ||
+          invoice.parent?.subscription_details?.metadata?.user_token ||
+          null;
+
+        if (invoice.billing_reason === 'subscription_create' || invoice.subscription) {
           if (userToken) {
-            const expiresAt = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString();
-            await setPro(userToken, expiresAt);
+            const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+            await setPro(userToken, getProExpiryFromTimestamp(periodEnd));
           }
+        }
+        break;
+      }
+
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription & { current_period_end?: number };
+        const userToken = subscription.metadata?.user_token || null;
+        if (!userToken) break;
+
+        if (event.type === 'customer.subscription.deleted' || subscription.status === 'canceled' || subscription.status === 'unpaid') {
+          await clearPro(userToken);
+        } else {
+          await setPro(userToken, getProExpiryFromTimestamp(subscription.current_period_end));
         }
         break;
       }
     }
 
+    await markStripeEventProcessed(event.id);
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error('Webhook error:', err);
@@ -94,16 +120,13 @@ export async function POST(req: NextRequest) {
 }
 
 function extractUserToken(session: Stripe.Checkout.Session): string | null {
-  // Check metadata first
-  if (session.metadata?.user_token) return session.metadata.user_token;
-
-  // Payment links can pass client_reference_id
   if (session.client_reference_id) return session.client_reference_id;
+  if (session.metadata?.user_token) return session.metadata.user_token;
+  if (session.metadata?.userToken) return session.metadata.userToken;
 
-  // Check custom fields
-  const customFields = (session as any).custom_fields;
+  const customFields = (session as Stripe.Checkout.Session & { custom_fields?: Array<{ key?: string; text?: { value?: string } }> }).custom_fields;
   if (Array.isArray(customFields)) {
-    const tokenField = customFields.find((f: any) => f.key === 'user_token');
+    const tokenField = customFields.find((f) => f.key === 'user_token' || f.key === 'userToken');
     if (tokenField?.text?.value) return tokenField.text.value;
   }
 

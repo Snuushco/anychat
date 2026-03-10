@@ -6,17 +6,17 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Send, Square, Copy, Check, DollarSign, Zap, MessageSquare, ChevronDown, Volume2, Key, Coins, Gift, ArrowRight } from "lucide-react"
+import { Send, Square, Copy, Check, DollarSign, Zap, MessageSquare, Volume2, Key, Coins, Gift, ArrowRight } from "lucide-react"
 import { ModelSelector } from "./model-selector"
 import { streamChat, streamChatWithTools, type ChatMessage as AIChatMessage, type ContentPart } from "@/lib/ai-client"
-import { MODELS, calculateCost, getModelById, PROVIDER_INFO } from "@/lib/models"
+import { MODELS, calculateCost, getModelById } from "@/lib/models"
 import { getEnabledTools, ALL_TOOLS, getToolById, getAllToolsWithPlugins, type Tool } from "@/lib/tools"
 import { ToolCallDisplay, type ToolCallInfo } from "./tool-call-display"
 import {
-  createConversation, updateConversation, addMessage as storeMessage,
-  getMessages, type Message, type Conversation
+  createConversation, updateConversation, addMessage as storeMessage, updateMessage,
+  getMessages, type Message, type Conversation, type MessageTransport
 } from "@/lib/chat-store"
-import { getAllKeys, saveApiKey, validateApiKey } from "@/lib/key-store"
+import { getAllKeys } from "@/lib/key-store"
 import { getCreditBalance, getModelCreditCost, refreshCreditBalanceFromServer, setCreditBalance as setLocalCreditBalance, type CreditBalance } from "@/lib/credits"
 import { SUGGESTED_PROMPTS } from "@/lib/prompts"
 import { InlineKeySetup } from "./inline-key-setup"
@@ -51,7 +51,6 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const [sessionCost, setSessionCost] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [agentMode, setAgentMode] = useState(false)
-  const [toolsExpanded, setToolsExpanded] = useState(false)
   const [activeToolCalls, setActiveToolCalls] = useState<ToolCallInfo[]>([])
   const [showKeyGate, setShowKeyGate] = useState<{ provider: import("@/lib/models").Provider; modelName: string; pendingMessage: string } | null>(null)
   const [attachments, setAttachments] = useState<FileAttachment[]>([])
@@ -63,17 +62,6 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-
-  useEffect(() => {
-    loadKeysAndDefaultModel()
-    loadFreeUsageState()
-    // Load memory context
-    getRecentMemories(20).then(memories => {
-      setMemoryContext(buildMemoryContext(memories))
-    }).catch(() => {})
-    // Load plugin tools
-    getAllToolsWithPlugins().then(setAllTools).catch(() => {})
-  }, [])
 
   const loadMessages = useCallback(async () => {
     if (!conversation) {
@@ -124,7 +112,6 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     const credits = syncedCredits || localCredits
     setCreditBalance(credits)
     const providers = new Set<string>(["free", ...keys.map(k => k.provider)])
-    // Add credits as available provider if user has credits
     if (credits && credits.credits > 0) {
       providers.add("credits")
     }
@@ -145,6 +132,15 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
   }
 
   useEffect(() => {
+    loadKeysAndDefaultModel()
+    loadFreeUsageState()
+    getRecentMemories(20).then(memories => {
+      setMemoryContext(buildMemoryContext(memories))
+    }).catch(() => {})
+    getAllToolsWithPlugins().then(setAllTools).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
@@ -160,6 +156,33 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
     if (availableProviders.has(model.provider)) return model.provider
     if (canUseCreditsForModel(model.id)) return "credits"
     return model.provider
+  }
+
+  function toMessageTransport(provider: import("@/lib/models").Provider): MessageTransport {
+    if (provider === 'free') return 'free'
+    if (provider === 'credits') return 'credits'
+    return 'byok'
+  }
+
+  function mapErrorCode(error: string): string {
+    const normalized = error.toLowerCase()
+    if (normalized.includes('insufficient credits')) return 'insufficient_credits'
+    if (normalized.includes('invalid') && normalized.includes('key')) return 'provider_auth'
+    if (normalized.includes('rate limit')) return 'provider_rate_limit'
+    if (normalized.includes('no internet') || normalized.includes('connection')) return 'network_offline'
+    if (normalized.includes('too long') || normalized.includes('timeout')) return 'provider_timeout'
+    return 'unknown'
+  }
+
+  function getErrorActions(errorCode: string) {
+    switch (errorCode) {
+      case 'insufficient_credits':
+        return { primaryLabel: 'Buy credits', primaryHref: '/credits', secondaryLabel: 'Add key', secondaryHref: '/settings' }
+      case 'provider_auth':
+        return { primaryLabel: 'Add key', primaryHref: '/settings', secondaryLabel: 'Use credits', secondaryHref: '/credits' }
+      default:
+        return { primaryLabel: 'Retry' }
+    }
   }
 
   async function handleSend(overrideInput?: string) {
@@ -198,6 +221,9 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       role: 'user',
       content: displayContent,
       model: model.id,
+      status: 'sent',
+      transport: toMessageTransport(transportProvider),
+      attemptCount: 1,
       createdAt: new Date().toISOString(),
     }
 
@@ -246,6 +272,21 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       aiMessages.push({ role: 'user', content: text.trim() })
     }
 
+    const assistantMessageId = crypto.randomUUID()
+    const pendingAssistantMessage: Message = {
+      id: assistantMessageId,
+      conversationId: conv.id,
+      role: 'assistant',
+      content: '',
+      model: model.id,
+      status: 'streaming',
+      transport: toMessageTransport(transportProvider),
+      attemptCount: 1,
+      createdAt: new Date().toISOString(),
+    }
+    await storeMessage(pendingAssistantMessage)
+    setMessages(prev => [...prev, pendingAssistantMessage])
+
     setIsStreaming(true)
     setStreamingContent("")
     setActiveToolCalls([])
@@ -270,18 +311,15 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
 
       const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
       const assistantMsg: Message = {
-        id: crypto.randomUUID(),
-        conversationId: conv!.id,
-        role: 'assistant',
+        ...pendingAssistantMessage,
         content: fullContent,
-        model: model.id,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
         cost,
-        createdAt: new Date().toISOString(),
+        status: 'sent',
       }
-      await storeMessage(assistantMsg)
-      setMessages(prev => [...prev, assistantMsg])
+      await updateMessage(assistantMsg)
+      setMessages(prev => prev.map((msg) => msg.id === assistantMessageId ? assistantMsg : msg))
       setStreamingContent("")
       setIsStreaming(false)
       setSessionCost(prev => prev + cost)
@@ -303,25 +341,32 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
       onConversationUpdated(updatedConv)
     }
 
-    const onError = (error: string) => {
+    const onError = async (error: string) => {
       setStreamingContent("")
       setIsStreaming(false)
       if (!error) return // aborted
+      const errorCode = mapErrorCode(error)
       setLastFailedInput(text.trim() || null)
-      const errMsg: Message = {
-        id: crypto.randomUUID(),
-        conversationId: conv!.id,
-        role: 'assistant',
-        content: `⚠️ ${error}`,
-        model: model.id,
-        createdAt: new Date().toISOString(),
+      const failedMsg: Message = {
+        ...pendingAssistantMessage,
+        content: fullContent || `⚠️ ${error}`,
+        status: 'failed',
+        errorCode,
+        errorMessage: error,
       }
-      setMessages(prev => [...prev, errMsg])
+      await updateMessage(failedMsg)
+      setMessages(prev => prev.map((msg) => msg.id === assistantMessageId ? failedMsg : msg))
     }
 
-    const onToken = (token: string) => {
+    const onToken = async (token: string) => {
       fullContent += token
       setStreamingContent(fullContent)
+      const streamingMsg: Message = {
+        ...pendingAssistantMessage,
+        content: fullContent,
+        status: 'streaming',
+      }
+      setMessages(prev => prev.map((msg) => msg.id === assistantMessageId ? streamingMsg : msg))
     }
 
     const enabledTools = getEnabledTools(allTools)
@@ -589,7 +634,7 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                     {extractHtmlBlocks(msg.content).map((block, i) => (
                       <HtmlPreview key={i} html={block.html} />
                     ))}
-                    <div className="flex items-center gap-2 mt-2 pt-1 border-t border-border/30">
+                    <div className="flex flex-wrap items-center gap-2 mt-2 pt-1 border-t border-border/30">
                       <button
                         onClick={() => copyMessage(msg.id, msg.content)}
                         className="text-muted-foreground hover:text-foreground transition-colors"
@@ -603,27 +648,41 @@ export function ChatInterface({ conversation, onConversationCreated, onConversat
                       >
                         <Volume2 className="h-3 w-3" />
                       </button>
+                      <span className="text-[10px] text-muted-foreground">
+                        {msg.status === 'streaming' ? 'Streaming…' : msg.status === 'failed' ? 'Failed' : msg.status === 'sent' ? 'Done' : 'Thinking…'}
+                        {msg.transport ? ` · ${msg.transport === 'byok' ? 'BYOK' : msg.transport === 'credits' ? 'Credits' : 'Free'}` : ''}
+                      </span>
                       {msg.cost !== undefined && msg.cost > 0 && (
                         <span className="text-[10px] text-muted-foreground">
                           €{msg.cost.toFixed(4)} · {msg.inputTokens}+{msg.outputTokens} tokens
                         </span>
                       )}
                     </div>
+                    {msg.status === 'failed' && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => handleSend(lastFailedInput || undefined)}>
+                          Retry
+                        </Button>
+                        {getErrorActions(msg.errorCode || 'unknown').primaryHref ? (
+                          <Link href={getErrorActions(msg.errorCode || 'unknown').primaryHref!} className="text-amber-500 hover:underline">
+                            {getErrorActions(msg.errorCode || 'unknown').primaryLabel}
+                          </Link>
+                        ) : null}
+                        {getErrorActions(msg.errorCode || 'unknown').secondaryHref ? (
+                          <Link href={getErrorActions(msg.errorCode || 'unknown').secondaryHref!} className="text-muted-foreground hover:underline">
+                            {getErrorActions(msg.errorCode || 'unknown').secondaryLabel}
+                          </Link>
+                        ) : null}
+                        {msg.errorMessage && <span className="text-muted-foreground">{msg.errorMessage}</span>}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
             </div>
           ))}
 
-          {/* Streaming message */}
-          {streamingContent && (
-            <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-muted/50 border border-border/30 px-4 py-2.5 text-sm prose prose-sm dark:prose-invert max-w-none [&_pre]:bg-background/50 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-1.5 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
-                <span className="inline-block w-1.5 h-4 bg-accent-primary/60 animate-pulse ml-0.5 rounded-sm" />
-              </div>
-            </div>
-          )}
+          {/* Streaming content is rendered inside the persisted assistant message above. */}
 
           {/* Typing indicator */}
           {isStreaming && !streamingContent && (

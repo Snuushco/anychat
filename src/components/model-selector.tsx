@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { ChevronDown, Zap, Clock, DollarSign } from "lucide-react"
 import { MODELS, PROVIDER_INFO, type AIModel, type Provider } from "@/lib/models"
 import { getModelCreditCost } from "@/lib/credits"
-import { useState, useMemo } from "react"
+import { useMemo, useState } from "react"
 
 interface ModelSelectorProps {
   selectedModel: string
@@ -17,7 +17,7 @@ interface ModelSelectorProps {
 
 export function ModelSelector({ selectedModel, onSelect, availableProviders, creditBalance = 0 }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
-  const current = MODELS.find(m => m.id === selectedModel) || MODELS[0]
+  const current = MODELS.find((m) => m.id === selectedModel) || MODELS[0]
 
   const groupedModels = useMemo(() => {
     const groups: { provider: Provider; models: AIModel[] }[] = []
@@ -25,7 +25,7 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders, cre
     for (const model of MODELS) {
       if (!seen.has(model.provider)) {
         seen.add(model.provider)
-        groups.push({ provider: model.provider, models: MODELS.filter(m => m.provider === model.provider) })
+        groups.push({ provider: model.provider, models: MODELS.filter((m) => m.provider === model.provider) })
       }
     }
     return groups
@@ -34,6 +34,24 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders, cre
   function handleSelect(model: AIModel) {
     onSelect(model)
     setOpen(false)
+  }
+
+  function getAvailability(model: AIModel) {
+    const creditCost = getModelCreditCost(model.id)
+    const isFree = model.provider === 'free'
+    const hasProviderAccess = availableProviders.has(model.provider)
+    const canUseCredits = !isFree && creditBalance >= creditCost
+
+    if (isFree) {
+      return { ready: true, label: 'Ready · Free', hint: 'No setup needed' }
+    }
+    if (hasProviderAccess) {
+      return { ready: true, label: 'Ready · BYOK', hint: `Uses your ${PROVIDER_INFO[model.provider].name} key` }
+    }
+    if (canUseCredits) {
+      return { ready: true, label: `Ready · Credits (${creditCost})`, hint: 'No API key needed' }
+    }
+    return { ready: false, label: 'Setup needed', hint: `Add a key or buy ${creditCost} credits` }
   }
 
   const speedIcon = {
@@ -63,48 +81,43 @@ export function ModelSelector({ selectedModel, onSelect, availableProviders, cre
                 <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: PROVIDER_INFO[provider].color }}>
                   {PROVIDER_INFO[provider].name}
                 </span>
-                {!availableProviders.has(provider) && provider !== 'free' && creditBalance <= 0 && (
-                  <Badge variant="outline" className="text-[10px] ml-auto">Key or credits required</Badge>
+                {!availableProviders.has(provider) && provider !== 'free' && (
+                  <Badge variant="outline" className="text-[10px] ml-auto">Credits or key</Badge>
                 )}
               </div>
               {models.map((model) => {
                 const creditCost = getModelCreditCost(model.id)
-                const hasProviderAccess = availableProviders.has(model.provider)
-                const isFree = model.provider === 'free'
-                const canUseCredits = !isFree && !hasProviderAccess && creditBalance >= creditCost
-                const isAvailable = isFree || hasProviderAccess || canUseCredits
+                const availability = getAvailability(model)
 
                 return (
                   <button
                     key={model.id}
-                    onClick={() => isAvailable && handleSelect(model)}
-                    disabled={!isAvailable}
-                    className={`flex items-start gap-3 rounded-lg p-3 pl-8 text-left transition-colors w-full
-                      ${model.id === selectedModel ? 'bg-primary/10 ring-1 ring-primary' : 'hover:bg-muted'}
-                      ${!isAvailable ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-                    `}
+                    onClick={() => handleSelect(model)}
+                    className={`flex items-start gap-3 rounded-lg p-3 pl-8 text-left transition-colors w-full ${
+                      model.id === selectedModel ? 'bg-primary/10 ring-1 ring-primary' : 'hover:bg-muted'
+                    } cursor-pointer`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm">{model.name}</span>
                         {speedIcon[model.speed]}
+                        <Badge variant={availability.ready ? 'default' : 'outline'} className="text-[10px]">
+                          {availability.label}
+                        </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{model.description}</p>
-                      {!isAvailable && model.provider !== 'free' && (
-                        <p className="text-[10px] text-amber-500 mt-0.5">
-                          Need key or {creditCost} credits
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                      <p className={`text-[10px] mt-1 ${availability.ready ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {availability.hint}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-0.5">
                           <DollarSign className="h-2.5 w-2.5" />
                           ${model.inputCostPer1k}/1K in · ${model.outputCostPer1k}/1K out
                         </span>
-                        <span className="text-yellow-500 font-medium">
-                          🪙 {creditCost} credit{creditCost !== 1 ? 's' : ''}
-                        </span>
-                        {canUseCredits && (
-                          <span className="text-emerald-500 font-medium">Uses credits</span>
+                        {!availability.ready && (
+                          <span className="text-yellow-500 font-medium">
+                            🪙 {creditCost} credits needed
+                          </span>
                         )}
                       </div>
                     </div>

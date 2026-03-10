@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { creditStoreMode, getCreditUser, refundCredits, spendCredits } from '@/lib/server/credit-store';
 
+export const runtime = 'nodejs';
+
 type ContentPart =
   | { type: 'text'; text: string }
   | { type: 'image'; mimeType: string; data: string };
@@ -10,21 +12,15 @@ interface ChatMessage {
   content: string | ContentPart[];
 }
 
-// Credit costs per model tier
 const MODEL_CREDIT_COSTS: Record<string, number> = {
-  // Tier 1 - 1 credit
   'gemini-2.5-flash': 1, 'llama-3.3-70b-versatile': 1, 'llama-3.1-8b-instant': 1,
   'mistral-small-latest': 1, 'deepseek-chat': 1, 'command-r': 1, 'gpt-4.1-nano': 1,
-  // Tier 2 - 2 credits
   'gpt-4.1-mini': 2, 'claude-3-5-haiku-20241022': 2, 'grok-3-mini': 2, 'gemini-2.5-pro': 2,
-  // Tier 3 - 5 credits
   'gpt-4.1': 5, 'claude-sonnet-4-20250514': 5, 'grok-3': 5, 'mistral-large-latest': 5,
   'command-r-plus': 5, 'deepseek-reasoner': 5,
-  // Tier 4 - 10 credits
   'claude-opus-4-20250514': 10, 'o3-mini': 10,
 };
 
-// Rate limiting per IP
 const ipRateLimit = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_PER_MINUTE = 30;
 
@@ -46,34 +42,33 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-function contentToOpenAI(content: string | ContentPart[]): any {
+function contentToOpenAI(content: string | ContentPart[]) {
   if (typeof content === 'string') return content;
-  return content.map(p => {
+  return content.map((p) => {
     if (p.type === 'text') return { type: 'text', text: p.text };
     if (p.type === 'image') return { type: 'image_url', image_url: { url: `data:${p.mimeType};base64,${p.data}` } };
     return p;
   });
 }
 
-function contentToAnthropic(content: string | ContentPart[]): any {
+function contentToAnthropic(content: string | ContentPart[]) {
   if (typeof content === 'string') return content;
-  return content.map(p => {
+  return content.map((p) => {
     if (p.type === 'text') return { type: 'text', text: p.text };
     if (p.type === 'image') return { type: 'image', source: { type: 'base64', media_type: p.mimeType, data: p.data } };
     return p;
   });
 }
 
-function contentToGoogle(content: string | ContentPart[]): any[] {
+function contentToGoogle(content: string | ContentPart[]): Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> {
   if (typeof content === 'string') return [{ text: content }];
-  return content.map(p => {
+  return content.map((p) => {
     if (p.type === 'text') return { text: p.text };
     if (p.type === 'image') return { inlineData: { mimeType: p.mimeType, data: p.data } };
     return { text: '' };
   });
 }
 
-// Determine which provider handles which model
 function getProviderForModel(modelId: string): string {
   if (modelId.startsWith('gpt-') || modelId.startsWith('o3')) return 'openai';
   if (modelId.startsWith('claude-')) return 'anthropic';
@@ -87,30 +82,36 @@ function getProviderForModel(modelId: string): string {
 }
 
 async function streamOpenAI(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
-  const body = {
-    model,
-    messages: messages.map(m => ({ role: m.role, content: contentToOpenAI(m.content) })),
-    stream: true,
-  };
   return fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      messages: messages.map((m) => ({ role: m.role, content: contentToOpenAI(m.content) })),
+      stream: true,
+    }),
   });
 }
 
 async function streamAnthropic(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
-  const systemMsg = messages.find(m => m.role === 'system');
-  const nonSystem = messages.filter(m => m.role !== 'system');
-  const body: any = {
+  const systemMsg = messages.find((m) => m.role === 'system');
+  const nonSystem = messages.filter((m) => m.role !== 'system');
+  const body: {
+    model: string;
+    max_tokens: number;
+    messages: Array<{ role: string; content: string | ReturnType<typeof contentToAnthropic> }>;
+    stream: boolean;
+    system?: string;
+  } = {
     model,
     max_tokens: 4096,
-    messages: nonSystem.map(m => ({ role: m.role === 'tool' ? 'user' : m.role, content: contentToAnthropic(m.content) })),
+    messages: nonSystem.map((m) => ({ role: m.role === 'tool' ? 'user' : m.role, content: contentToAnthropic(m.content) })),
     stream: true,
   };
   if (systemMsg) {
-    body.system = typeof systemMsg.content === 'string' ? systemMsg.content :
-      systemMsg.content.map(p => p.type === 'text' ? p.text : '').join('');
+    body.system = typeof systemMsg.content === 'string'
+      ? systemMsg.content
+      : systemMsg.content.map((p) => p.type === 'text' ? p.text : '').join('');
   }
   return fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -124,81 +125,69 @@ async function streamAnthropic(model: string, messages: ChatMessage[], apiKey: s
 }
 
 async function streamGoogle(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
-  const systemMsg = messages.find(m => m.role === 'system');
+  const systemMsg = messages.find((m) => m.role === 'system');
   const contents = messages
-    .filter(m => m.role !== 'system')
-    .map(m => ({
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: contentToGoogle(m.content),
     }));
-  const body: any = { contents };
+  const body: { contents: typeof contents; systemInstruction?: { parts: Array<{ text: string }> } } = { contents };
   if (systemMsg) {
-    const txt = typeof systemMsg.content === 'string' ? systemMsg.content :
-      systemMsg.content.map(p => p.type === 'text' ? p.text : '').join('');
+    const txt = typeof systemMsg.content === 'string' ? systemMsg.content : systemMsg.content.map((p) => p.type === 'text' ? p.text : '').join('');
     body.systemInstruction = { parts: [{ text: txt }] };
   }
-  return fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  );
+  return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 async function streamXAI(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
   return fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model, stream: true,
-      messages: messages.map(m => ({ role: m.role, content: contentToOpenAI(m.content) })),
-    }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, stream: true, messages: messages.map((m) => ({ role: m.role, content: contentToOpenAI(m.content) })) }),
   });
 }
 
 async function streamMistral(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
   return fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model, stream: true,
-      messages: messages.map(m => ({ role: m.role, content: contentToOpenAI(m.content) })),
-    }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, stream: true, messages: messages.map((m) => ({ role: m.role, content: contentToOpenAI(m.content) })) }),
   });
 }
 
 async function streamDeepSeek(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
   return fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model, stream: true,
-      messages: messages.map(m => ({ role: m.role, content: contentToOpenAI(m.content) })),
-    }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, stream: true, messages: messages.map((m) => ({ role: m.role, content: contentToOpenAI(m.content) })) }),
   });
 }
 
 async function streamGroq(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
   return fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model, stream: true,
-      messages: messages.map(m => ({ role: m.role, content: contentToOpenAI(m.content) })),
-    }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, stream: true, messages: messages.map((m) => ({ role: m.role, content: contentToOpenAI(m.content) })) }),
   });
 }
 
 async function streamCohere(model: string, messages: ChatMessage[], apiKey: string): Promise<Response> {
   return fetch('https://api.cohere.com/v2/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model, stream: true,
-      messages: messages.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(p => p.type === 'text' ? p.text : '').join('') })),
+      model,
+      stream: true,
+      messages: messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map((p) => p.type === 'text' ? p.text : '').join('') })),
     }),
   });
 }
 
-// API key env var names
 const API_KEYS: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
   anthropic: 'ANTHROPIC_API_KEY',
@@ -214,7 +203,7 @@ export async function POST(req: NextRequest) {
   try {
     const ip = getIp(req);
     if (!checkRateLimit(ip)) {
-      return NextResponse.json({ error: 'Rate limit exceeded. Please slow down.' }, { status: 429 });
+      return NextResponse.json({ error: 'Rate limit exceeded. Please slow down.', errorCode: 'rate_limit' }, { status: 429 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -225,7 +214,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (!messages?.length || !modelId || !userToken) {
-      return NextResponse.json({ error: 'Missing messages, model, or userToken.' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing messages, model, or userToken.', errorCode: 'bad_request' }, { status: 400 });
     }
 
     const creditCost = MODEL_CREDIT_COSTS[modelId] ?? 3;
@@ -234,6 +223,7 @@ export async function POST(req: NextRequest) {
     if (user.credits < creditCost) {
       return NextResponse.json({
         error: 'Insufficient credits.',
+        errorCode: 'insufficient_credits',
         required: creditCost,
         balance: user.credits,
         buyUrl: '/credits',
@@ -246,14 +236,15 @@ export async function POST(req: NextRequest) {
     if (!apiKey) {
       return NextResponse.json({
         error: `Server key not configured for ${provider}. Contact support.`,
+        errorCode: 'provider_not_configured',
       }, { status: 500 });
     }
 
-    // Deduct credits first. Refund on upstream failure.
-    const charge = await spendCredits(userToken, creditCost);
+    const charge = await spendCredits(userToken, creditCost, { modelId, provider });
     if (!charge.ok) {
       return NextResponse.json({
         error: 'Insufficient credits.',
+        errorCode: 'insufficient_credits',
         required: creditCost,
         balance: charge.user.credits,
         buyUrl: '/credits',
@@ -272,15 +263,20 @@ export async function POST(req: NextRequest) {
       case 'groq': upstream = await streamGroq(modelId, messages, apiKey); break;
       case 'cohere': upstream = await streamCohere(modelId, messages, apiKey); break;
       default:
-        remainingCredits = (await refundCredits(userToken, creditCost)).credits;
-        return NextResponse.json({ error: 'Unsupported model.' }, { status: 400 });
+        remainingCredits = (await refundCredits(userToken, creditCost, { modelId, provider, reason: 'unsupported_model' })).credits;
+        return NextResponse.json({ error: 'Unsupported model.', errorCode: 'unsupported_model' }, { status: 400 });
     }
 
     if (!upstream.ok || !upstream.body) {
-      remainingCredits = (await refundCredits(userToken, creditCost)).credits;
-      const err = await upstream.json().catch(() => ({}));
+      remainingCredits = (await refundCredits(userToken, creditCost, { modelId, provider, reason: 'upstream_error' })).credits;
+      const err = await upstream.json().catch(() => ({} as { error?: { message?: string } }));
       return NextResponse.json(
-        { error: (err as any)?.error?.message || 'Model unavailable. Try again later.' },
+        {
+          error: err?.error?.message || 'Model unavailable. Try again later.',
+          errorCode: upstream.status === 429 ? 'provider_rate_limit' : 'provider_error',
+          refunded: true,
+          creditsRemaining: remainingCredits,
+        },
         { status: upstream.status || 502 }
       );
     }
@@ -295,11 +291,10 @@ export async function POST(req: NextRequest) {
 
     return new NextResponse(upstream.body, { status: 200, headers });
   } catch {
-    return NextResponse.json({ error: 'Unexpected server error.' }, { status: 500 });
+    return NextResponse.json({ error: 'Unexpected server error.', errorCode: 'unexpected_server_error' }, { status: 500 });
   }
 }
 
-// GET endpoint to check credit balance
 export async function GET(req: NextRequest) {
   const userToken = req.nextUrl.searchParams.get('userToken');
   if (!userToken) {

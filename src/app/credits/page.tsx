@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Coins, Sparkles, Zap, Crown, Check, Copy, ArrowRight } from "lucide-react"
+import { Coins, Crown, Check, Copy, ArrowRight, RefreshCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -34,11 +34,17 @@ export default function CreditsPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const refreshBalance = async () => {
+    const synced = await refreshCreditBalanceFromServer()
+    if (synced) setBalance(synced)
+  }
+
   const openCheckout = (link: string) => {
     if (!balance) return
-    // Append user token as client_reference_id
     const url = new URL(link)
     url.searchParams.set('client_reference_id', balance.userToken)
+    url.searchParams.set('prefilled_email', '')
+    url.searchParams.set('metadata[user_token]', balance.userToken)
     window.open(url.toString(), '_blank')
   }
 
@@ -58,16 +64,24 @@ export default function CreditsPage() {
 
         {/* Balance Card */}
         <Card className="p-6 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/20">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Your Balance</p>
               <p className="text-4xl font-bold">{balance?.credits ?? 0} <span className="text-lg text-muted-foreground">credits</span></p>
+              {balance?.proExpiresAt && balance.isPro && (
+                <p className="text-xs text-muted-foreground mt-1">Pro active until {new Date(balance.proExpiresAt).toLocaleDateString()}</p>
+              )}
             </div>
-            {balance?.isPro && (
-              <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-0">
-                <Crown className="h-3 w-3 mr-1" /> Pro
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={refreshBalance}>
+                <RefreshCcw className="h-3.5 w-3.5 mr-1" /> Refresh
+              </Button>
+              {balance?.isPro && (
+                <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-0">
+                  <Crown className="h-3 w-3 mr-1" /> Pro
+                </Badge>
+              )}
+            </div>
           </div>
           {/* User Token */}
           <div className="mt-4 pt-4 border-t border-yellow-500/10">

@@ -3,7 +3,10 @@
 const DB_NAME = 'anychat_chats';
 const CONVERSATIONS_STORE = 'conversations';
 const MESSAGES_STORE = 'messages';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+
+export type MessageStatus = 'queued' | 'sending' | 'streaming' | 'sent' | 'failed';
+export type MessageTransport = 'byok' | 'credits' | 'free';
 
 export interface Message {
   id: string;
@@ -14,6 +17,12 @@ export interface Message {
   inputTokens?: number;
   outputTokens?: number;
   cost?: number;
+  status?: MessageStatus;
+  transport?: MessageTransport;
+  errorCode?: string;
+  errorMessage?: string;
+  retryOfMessageId?: string;
+  attemptCount?: number;
   createdAt: string;
 }
 
@@ -94,7 +103,6 @@ export async function deleteConversation(id: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction([CONVERSATIONS_STORE, MESSAGES_STORE], 'readwrite');
     tx.objectStore(CONVERSATIONS_STORE).delete(id);
-    // Delete all messages in this conversation
     const msgStore = tx.objectStore(MESSAGES_STORE);
     const index = msgStore.index('conversationId');
     const request = index.openCursor(IDBKeyRange.only(id));
@@ -118,6 +126,10 @@ export async function addMessage(msg: Message): Promise<void> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+export async function updateMessage(msg: Message): Promise<void> {
+  return addMessage(msg);
 }
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
